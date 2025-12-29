@@ -1,5 +1,6 @@
 import express from 'express';
 import jwt from 'jsonwebtoken';
+import { setTokenCookie, clearTokenCookie } from '../utils/cookie.js';
 import models from '../models/index.js';
 import { authenticateToken } from '../middleware/auth.js';
 
@@ -11,13 +12,13 @@ router.post('/signup', async (req, res) => {
   try {
     const { username, password, user_role, asset_holder_id } = req.body;
     if (!username || !password || !user_role) {
-      return res.status(400).json({ error: 'Username, password, and user_role are required' });
+      return res.status(400).json({ success: false, error: 'Username, password, and user_role are required' });
     }
 
     // Check if username already exists
     const existingUser = await SystemUser.findOne({ where: { username } });
     if (existingUser) {
-      return res.status(409).json({ error: 'Username already exists' });
+      return res.status(409).json({ success: false, error: 'Username already exists' });
     }
 
     // Optionally check asset_holder_id exists if provided
@@ -25,7 +26,7 @@ router.post('/signup', async (req, res) => {
     if (asset_holder_id) {
       assetHolder = await AssetHolder.findByPk(asset_holder_id);
       if (!assetHolder) {
-        return res.status(400).json({ error: 'Invalid asset_holder_id' });
+        return res.status(400).json({ success: false, error: 'Invalid asset_holder_id' });
       }
     }
 
@@ -39,8 +40,9 @@ router.post('/signup', async (req, res) => {
     });
 
     res.status(201).json({
+      success: true,
       message: 'User created successfully',
-      user: {
+      data: {
         system_user_id: newUser.system_user_id,
         username: newUser.username,
         user_role: newUser.user_role,
@@ -49,7 +51,7 @@ router.post('/signup', async (req, res) => {
     });
   } catch (error) {
     console.error('Signup error:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
 
@@ -59,7 +61,7 @@ router.post('/login', async (req, res) => {
     const { username, password } = req.body;
 
     if (!username || !password) {
-      return res.status(400).json({ error: 'Username and password are required' });
+      return res.status(400).json({ success: false, error: 'Username and password are required' });
     }
 
     const user = await SystemUser.findOne({
@@ -72,12 +74,12 @@ router.post('/login', async (req, res) => {
     });
 
     if (!user || !user.is_active) {
-      return res.status(401).json({ error: 'Invalid credentials' });
+      return res.status(401).json({ success: false, error: 'Invalid credentials' });
     }
 
     const isValidPassword = await user.validatePassword(password);
     if (!isValidPassword) {
-      return res.status(401).json({ error: 'Invalid credentials' });
+      return res.status(401).json({ success: false, error: 'Invalid credentials' });
     }
 
     // Update last login
@@ -93,20 +95,23 @@ router.post('/login', async (req, res) => {
       { expiresIn: process.env.JWT_EXPIRES_IN || '24h' }
     );
 
+    setTokenCookie(res, token);
     res.json({
-      token,
-      user: {
-        system_user_id: user.system_user_id,
-        username: user.username,
-        user_role: user.user_role,
-        full_name: user.assetHolder?.full_name || username,
-        email: user.assetHolder?.email,
-        department: user.assetHolder?.department
+      success: true,
+      data: {
+        user: {
+          system_user_id: user.system_user_id,
+          username: user.username,
+          user_role: user.user_role,
+          full_name: user.assetHolder?.full_name || username,
+          email: user.assetHolder?.email,
+          department: user.assetHolder?.department
+        }
       }
     });
   } catch (error) {
     console.error('Login error:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
 
@@ -122,16 +127,17 @@ router.get('/me', authenticateToken, async (req, res) => {
       }]
     });
 
-    res.json({ user });
+    res.json({ success: true, data: user });
   } catch (error) {
     console.error('Get user error:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
 
 // Logout (client-side token removal, but log the activity)
 router.post('/logout', authenticateToken, async (req, res) => {
-  res.json({ message: 'Logged out successfully' });
+  clearTokenCookie(res);
+  res.json({ success: true, message: 'Logged out successfully' });
 });
 
 export default router;

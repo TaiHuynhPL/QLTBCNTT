@@ -7,38 +7,43 @@ const Login = () => {
   const [error, setError] = useState('');
   const navigate = useNavigate();
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    // Fake login: accept any username/password for demo
-    if (username && password) {
-      localStorage.setItem('isLoggedIn', 'true');
+    setError('');
+    if (!username || !password) {
+      setError('Vui lòng nhập đầy đủ thông tin');
+      return;
+    }
+    try {
+      const res = await import('../api/axiosClient').then(m => m.default.post('/auth/login', { username, password }));
+      // Không cần lưu token, token đã ở httpOnly cookie
       localStorage.setItem('username', username);
       navigate('/');
-    } else {
-      setError('Vui lòng nhập đầy đủ thông tin');
+    } catch (err) {
+      setError('Sai tên đăng nhập hoặc mật khẩu!');
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
-      <form onSubmit={handleSubmit} className="bg-white/80 backdrop-blur-md p-8 rounded-xl shadow-xl w-full max-w-sm flex flex-col gap-4">
-        <h2 className="text-2xl font-bold text-indigo-700 mb-4 text-center">Đăng nhập</h2>
-        {error && <div className="text-red-500 text-sm mb-2">{error}</div>}
+       <div className="min-h-screen flex items-center justify-center bg-gray-50 font-sans">
+      <form onSubmit={handleSubmit} className="bg-white/90 backdrop-blur-md p-10 rounded-2xl shadow-2xl w-full max-w-md flex flex-col gap-6 border border-gray-100">
+        <h2 className="text-3xl font-bold text-indigo-700 mb-2 text-center drop-shadow">Đăng nhập hệ thống</h2>
+        {error && <div className="text-red-500 text-base mb-2 text-center bg-red-50 border border-red-200 rounded-lg py-2 px-3">{error}</div>}
         <input
           type="text"
           placeholder="Tên đăng nhập"
-          className="border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+          className="border border-gray-200 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-cyan-400 text-base"
           value={username}
           onChange={e => setUsername(e.target.value)}
         />
         <input
           type="password"
           placeholder="Mật khẩu"
-          className="border rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+          className="border border-gray-200 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-400 text-base"
           value={password}
           onChange={e => setPassword(e.target.value)}
         />
-        <button type="submit" className="bg-indigo-600 text-white py-2 rounded hover:bg-indigo-700 transition">Đăng nhập</button>
+          <button type="submit" className="bg-indigo-500 text-white py-3 rounded-lg hover:bg-indigo-600 transition text-lg font-semibold shadow">Đăng nhập</button>
       </form>
     </div>
   );

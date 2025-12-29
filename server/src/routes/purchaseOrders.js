@@ -1,5 +1,6 @@
 import express from 'express';
 import models from '../models/index.js';
+import { Op } from 'sequelize';
 import { authenticateToken, authorize } from '../middleware/auth.js';
 import { logActivity } from '../middleware/activityLogger.js';
 
@@ -9,12 +10,20 @@ const { PurchaseOrder, DetailOrder, Supplier, SystemUser, AssetModel, Consumable
 // Get all purchase orders
 router.get('/', authenticateToken, async (req, res) => {
   try {
-    const { status } = req.query;
+    const { status, search, page = 1, limit = 10 } = req.query;
 
     const where = {};
     if (status) where.status = status;
+    if (search) {
+      where.order_code = { [Op.iLike]: `%${search}%` };
+    }
 
-    const purchaseOrders = await PurchaseOrder.findAll({
+    const offset = (page - 1) * limit;
+
+    // Đếm tổng số record KHÔNG include (chỉ tính theo where)
+    const count = await PurchaseOrder.count({ where });
+    // Lấy dữ liệu trang hiện tại (có include)
+    const rows = await PurchaseOrder.findAll({
       where,
       include: [
         { model: Supplier, as: 'supplier' },
@@ -28,13 +37,23 @@ router.get('/', authenticateToken, async (req, res) => {
           ]
         }
       ],
+      limit: parseInt(limit),
+      offset: parseInt(offset),
       order: [['order_date', 'DESC']]
     });
 
-    res.json({ purchaseOrders });
+    res.json({
+      success: true,
+      data: {
+        purchaseOrders: rows,
+        total: count,
+        page: parseInt(page),
+        totalPages: Math.ceil(count / limit)
+      }
+    });
   } catch (error) {
     console.error('Get purchase orders error:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
 
@@ -57,13 +76,13 @@ router.get('/:id', authenticateToken, async (req, res) => {
     });
 
     if (!purchaseOrder) {
-      return res.status(404).json({ error: 'Purchase order not found' });
+      return res.status(404).json({ success: false, error: 'Purchase order not found' });
     }
 
-    res.json({ purchaseOrder });
+    res.json({ success: true, data: purchaseOrder });
   } catch (error) {
     console.error('Get purchase order error:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
 
@@ -85,13 +104,13 @@ router.post('/',
 
       // Validate required fields
       if (!order_code || !order_date || !supplier_id || !status) {
-        return res.status(400).json({ error: 'Missing required fields' });
+        return res.status(400).json({ success: false, error: 'Missing required fields' });
       }
 
       // Check for duplicate order_code
       const existingOrder = await PurchaseOrder.findOne({ where: { order_code } });
       if (existingOrder) {
-        return res.status(400).json({ error: 'Order code already exists' });
+        return res.status(400).json({ success: false, error: 'Order code already exists' });
       }
 
       // Calculate total amount
@@ -145,10 +164,10 @@ router.post('/',
         ]
       });
 
-      res.status(201).json({ data: createdOrder });
+      res.status(201).json({ success: true, data: createdOrder });
     } catch (error) {
       console.error('Create purchase order error:', error);
-      res.status(500).json({ error: error.message || 'Internal server error' });
+      res.status(500).json({ success: false, error: 'Internal server error' });
     }
   }
 );
@@ -165,7 +184,7 @@ router.put('/:id',
       const purchaseOrder = await PurchaseOrder.findByPk(req.params.id);
       
       if (!purchaseOrder) {
-        return res.status(404).json({ error: 'Purchase order not found' });
+        return res.status(404).json({ success: false, error: 'Purchase order not found' });
       }
 
       await purchaseOrder.update({
@@ -188,10 +207,10 @@ router.put('/:id',
         ]
       });
 
-      res.json({ data: updatedOrder });
+      res.json({ success: true, data: updatedOrder });
     } catch (error) {
       console.error('Update purchase order error:', error);
-      res.status(500).json({ error: error.message || 'Internal server error' });
+      res.status(500).json({ success: false, error: 'Internal server error' });
     }
   }
 );

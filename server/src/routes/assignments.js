@@ -1,3 +1,4 @@
+
 import express from 'express';
 import models from '../models/index.js';
 import { authenticateToken, authorize } from '../middleware/auth.js';
@@ -5,6 +6,33 @@ import { logActivity } from '../middleware/activityLogger.js';
 
 const router = express.Router();
 const { Assignment, Asset, AssetHolder, AssetModel } = models;
+
+// Get assignments by asset_id (for AssetDetail)
+router.get('/asset/:id', authenticateToken, async (req, res) => {
+  try {
+    const assignments = await Assignment.findAll({
+      where: { asset_id: req.params.id },
+      include: [
+        {
+          model: Asset,
+          as: 'asset',
+          include: [{ model: AssetModel, as: 'assetModel' }]
+        },
+        { model: AssetHolder, as: 'assetHolder' },
+        {
+          model: Asset,
+          as: 'parentAsset',
+          include: [{ model: AssetModel, as: 'assetModel' }]
+        }
+      ],
+      order: [['assignment_date', 'DESC']]
+    });
+    res.json({ success: true, data: assignments });
+  } catch (error) {
+    console.error('Get assignments by asset_id error:', error);
+    res.status(500).json({ success: false, error: 'Internal server error' });
+  }
+});
 
 // Get all assignments
 router.get('/', authenticateToken, async (req, res) => {
@@ -34,10 +62,10 @@ router.get('/', authenticateToken, async (req, res) => {
       order: [['assignment_date', 'DESC']]
     });
 
-    res.json({ assignments });
+    res.json({ success: true, data: assignments });
   } catch (error) {
     console.error('Get assignments error:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
 
@@ -57,12 +85,13 @@ router.post('/',
 
       // Validate required fields
       if (!assignment_date || !asset_id) {
-        return res.status(400).json({ error: 'Missing required fields' });
+        return res.status(400).json({ success: false, error: 'Missing required fields' });
       }
 
       // Validate polymorphic constraint
       if ((asset_holder_id && parent_asset_id) || (!asset_holder_id && !parent_asset_id)) {
         return res.status(400).json({ 
+          success: false,
           error: 'Must specify either asset_holder_id OR parent_asset_id, not both or neither' 
         });
       }
@@ -70,7 +99,7 @@ router.post('/',
       // Check if asset exists and is available
       const asset = await Asset.findByPk(asset_id);
       if (!asset) {
-        return res.status(404).json({ error: 'Asset not found' });
+        return res.status(404).json({ success: false, error: 'Asset not found' });
       }
 
       // Check if asset is already assigned
@@ -79,7 +108,7 @@ router.post('/',
       });
 
       if (existingAssignment) {
-        return res.status(400).json({ error: 'Asset is already assigned' });
+        return res.status(400).json({ success: false, error: 'Asset is already assigned' });
       }
 
       const assignment = await Assignment.create({
@@ -108,10 +137,10 @@ router.post('/',
         ]
       });
 
-      res.status(201).json({ data: createdAssignment });
+      res.status(201).json({ success: true, data: createdAssignment });
     } catch (error) {
       console.error('Create assignment error:', error);
-      res.status(500).json({ error: error.message || 'Internal server error' });
+      res.status(500).json({ success: false, error: 'Internal server error' });
     }
   }
 );
@@ -126,7 +155,7 @@ router.put('/:id/return',
       const { return_date } = req.body;
 
       if (!return_date) {
-        return res.status(400).json({ error: 'Return date is required' });
+        return res.status(400).json({ success: false, error: 'Return date is required' });
       }
 
       const assignment = await Assignment.findByPk(req.params.id, {
@@ -134,16 +163,16 @@ router.put('/:id/return',
       });
 
       if (!assignment) {
-        return res.status(404).json({ error: 'Assignment not found' });
+        return res.status(404).json({ success: false, error: 'Assignment not found' });
       }
 
       if (assignment.return_date) {
-        return res.status(400).json({ error: 'Asset already returned' });
+        return res.status(400).json({ success: false, error: 'Asset already returned' });
       }
 
       // Validate return_date >= assignment_date
       if (new Date(return_date) < new Date(assignment.assignment_date)) {
-        return res.status(400).json({ error: 'Return date must be after assignment date' });
+        return res.status(400).json({ success: false, error: 'Return date must be after assignment date' });
       }
 
       await assignment.update({ return_date });
@@ -169,10 +198,10 @@ router.put('/:id/return',
         ]
       });
 
-      res.json({ data: updatedAssignment });
+      res.json({ success: true, data: updatedAssignment });
     } catch (error) {
       console.error('Return asset error:', error);
-      res.status(500).json({ error: error.message || 'Internal server error' });
+      res.status(500).json({ success: false, error: 'Internal server error' });
     }
   }
 );

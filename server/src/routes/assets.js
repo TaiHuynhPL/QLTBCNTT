@@ -1,3 +1,4 @@
+
 import express from 'express';
 import { Op } from 'sequelize';
 import models from '../models/index.js';
@@ -6,6 +7,25 @@ import { logActivity, captureOriginalData } from '../middleware/activityLogger.j
 
 const router = express.Router();
 const { Asset, AssetModel, Supplier, Location, Assignment, MaintenanceLog, AssetHolder } = models;
+
+// GET /assets/holder/:id - Lấy danh sách tài sản của holder
+router.get('/holder/:id', authenticateToken, async (req, res) => {
+  try {
+    // Kiểm tra cột asset_holder_id có tồn tại không
+    const tableDesc = await Asset.describe();
+    if (!('asset_holder_id' in tableDesc)) {
+      return res.json({ success: true, data: [] });
+    }
+    const assets = await Asset.findAll({
+      where: { asset_holder_id: req.params.id },
+      order: [['created_at', 'DESC']]
+    });
+    res.json({ success: true, data: assets });
+  } catch (error) {
+    console.error('Get assets by holder error:', error);
+    res.status(500).json({ success: false, error: 'Internal server error' });
+  }
+});
 
 // Get all assets with filters
 router.get('/', authenticateToken, async (req, res) => {
@@ -46,14 +66,17 @@ router.get('/', authenticateToken, async (req, res) => {
     });
 
     res.json({
-      assets: rows,
-      total: count,
-      page: parseInt(page),
-      totalPages: Math.ceil(count / limit)
+      success: true,
+      data: {
+        assets: rows,
+        total: count,
+        page: parseInt(page),
+        totalPages: Math.ceil(count / limit)
+      }
     });
   } catch (error) {
     console.error('Get assets error:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
 
@@ -82,13 +105,13 @@ router.get('/:id', authenticateToken, async (req, res) => {
     });
 
     if (!asset) {
-      return res.status(404).json({ error: 'Asset not found' });
+      return res.status(404).json({ success: false, error: 'Asset not found' });
     }
 
-    res.json({ asset });
+    res.json({ success: true, data: asset });
   } catch (error) {
     console.error('Get asset error:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
 
@@ -113,20 +136,20 @@ router.post('/',
 
       // Validate required fields
       if (!asset_tag || !current_status || !asset_model_id || !location_id) {
-        return res.status(400).json({ error: 'Missing required fields' });
+        return res.status(400).json({ success: false, error: 'Missing required fields' });
       }
 
       // Check for duplicate asset_tag
       const existingAsset = await Asset.findOne({ where: { asset_tag } });
       if (existingAsset) {
-        return res.status(400).json({ error: 'Asset tag already exists' });
+        return res.status(400).json({ success: false, error: 'Asset tag already exists' });
       }
 
       // Check for duplicate serial_number if provided
       if (serial_number) {
         const existingSerial = await Asset.findOne({ where: { serial_number } });
         if (existingSerial) {
-          return res.status(400).json({ error: 'Serial number already exists' });
+          return res.status(400).json({ success: false, error: 'Serial number already exists' });
         }
       }
 
@@ -150,10 +173,10 @@ router.post('/',
         ]
       });
 
-      res.status(201).json({ data: createdAsset });
+      res.status(201).json({ success: true, data: createdAsset });
     } catch (error) {
       console.error('Create asset error:', error);
-      res.status(500).json({ error: error.message || 'Internal server error' });
+      res.status(500).json({ success: false, error: 'Internal server error' });
     }
   }
 );
@@ -169,7 +192,7 @@ router.put('/:id',
       const asset = await Asset.findByPk(req.params.id);
       
       if (!asset) {
-        return res.status(404).json({ error: 'Asset not found' });
+        return res.status(404).json({ success: false, error: 'Asset not found' });
       }
 
       const {
@@ -188,7 +211,7 @@ router.put('/:id',
       if (asset_tag && asset_tag !== asset.asset_tag) {
         const existingAsset = await Asset.findOne({ where: { asset_tag } });
         if (existingAsset) {
-          return res.status(400).json({ error: 'Asset tag already exists' });
+          return res.status(400).json({ success: false, error: 'Asset tag already exists' });
         }
       }
 
@@ -196,7 +219,7 @@ router.put('/:id',
       if (serial_number && serial_number !== asset.serial_number) {
         const existingSerial = await Asset.findOne({ where: { serial_number } });
         if (existingSerial) {
-          return res.status(400).json({ error: 'Serial number already exists' });
+          return res.status(400).json({ success: false, error: 'Serial number already exists' });
         }
       }
 
@@ -220,10 +243,10 @@ router.put('/:id',
         ]
       });
 
-      res.json({ data: updatedAsset });
+      res.json({ success: true, data: updatedAsset });
     } catch (error) {
       console.error('Update asset error:', error);
-      res.status(500).json({ error: error.message || 'Internal server error' });
+      res.status(500).json({ success: false, error: 'Internal server error' });
     }
   }
 );
@@ -239,15 +262,15 @@ router.delete('/:id',
       const asset = await Asset.findByPk(req.params.id);
       
       if (!asset) {
-        return res.status(404).json({ error: 'Asset not found' });
+        return res.status(404).json({ success: false, error: 'Asset not found' });
       }
 
       await asset.update({ current_status: 'Retired' });
 
-      res.json({ message: 'Asset retired successfully', data: asset });
+      res.json({ success: true, message: 'Asset retired successfully', data: asset });
     } catch (error) {
       console.error('Delete asset error:', error);
-      res.status(500).json({ error: 'Internal server error' });
+      res.status(500).json({ success: false, error: 'Internal server error' });
     }
   }
 );

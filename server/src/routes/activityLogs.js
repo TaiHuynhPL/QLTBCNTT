@@ -44,14 +44,17 @@ router.get('/', authenticateToken, authorize('Admin', 'Manager'), async (req, re
     });
 
     res.json({
-      activityLogs: rows,
-      total: count,
-      page: parseInt(page),
-      totalPages: Math.ceil(count / limit)
+      success: true,
+      data: {
+        activityLogs: rows,
+        total: count,
+        page: parseInt(page),
+        totalPages: Math.ceil(count / limit)
+      }
     });
   } catch (error) {
     console.error('Get activity logs error:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
 

@@ -1,43 +1,86 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Search, Plus, User, Shield, UserX, UserCheck, Eye 
 } from 'lucide-react';
-import { EMPLOYEES_MOCK } from './data/mockEmployeeData';
+import axios from '../api/axiosClient';
 
 export default function EmployeeList() {
   const navigate = useNavigate();
-  const [searchTerm, setSearchTerm] = useState('');
+  const [data, setData] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [total, setTotal] = useState(0);
+  const debounceRef = useRef();
 
-  // Filter logic
-  const filteredData = EMPLOYEES_MOCK.filter(emp => 
-    emp.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    emp.employee_code.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const fetchEmployees = () => {
+    setLoading(true);
+    setError(null);
+    axios.get('/holders', {
+      params: {
+        search: debouncedSearch || undefined,
+        page,
+        limit: 10
+      }
+    })
+      .then(res => {
+        setData(res.data.data.holders);
+        setTotalPages(res.data.data.totalPages);
+        setTotal(res.data.data.total);
+      })
+      .catch(err => setError(err.response?.data?.error || 'Không thể tải danh sách nhân viên'))
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    fetchEmployees();
+    // eslint-disable-next-line
+  }, [debouncedSearch, page]);
+
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      setDebouncedSearch(search);
+    }, 300);
+    return () => clearTimeout(debounceRef.current);
+  }, [search]);
 
   return (
-    <div className="p-6 bg-gray-50 min-h-screen font-sans">
-      <div className="flex justify-between items-center mb-6">
+    <div className="min-h-screen bg-gray-50 p-4 md:p-8 font-sans">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-2 mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Danh sách Nhân viên</h1>
-          <p className="text-sm text-gray-500 mt-1">Quản lý nhân sự và phân quyền hệ thống</p>
+          <h1 className="text-3xl md:text-4xl font-extrabold text-indigo-700 tracking-tight mb-1 drop-shadow-sm">Danh sách Nhân viên</h1>
+          <p className="text-gray-500 text-base md:text-lg">Quản lý nhân sự và phân quyền hệ thống</p>
         </div>
-        <button onClick={() => navigate('/holders/new')} className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 shadow-sm transition-all">
+        <button onClick={() => navigate('/holders/new')} className="flex items-center gap-2 bg-indigo-500 text-white px-5 py-2 rounded-xl hover:bg-indigo-600 shadow-md transition-all font-semibold">
           <Plus size={18} /> Thêm nhân viên mới
         </button>
       </div>
 
-      <div className="bg-white rounded-xl shadow border border-gray-200 overflow-hidden">
+      <div className="bg-white rounded-2xl shadow-md border border-gray-100 overflow-hidden">
         {/* Toolbar */}
-        <div className="p-4 border-b border-gray-200">
-          <div className="relative max-w-md">
-            <Search className="absolute left-3 top-2.5 text-gray-400" size={18} />
-            <input 
-              type="text" 
-              placeholder="Tìm tên, mã nhân viên..." 
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 outline-none"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+        <div className="p-6 border-b border-gray-100 flex gap-4">
+          <div className="relative flex-1 max-w-md">
+            <Search className="absolute left-3 top-3 text-gray-400" size={20} />
+            <input
+              type="text"
+              placeholder="Tìm tên, mã nhân viên..."
+              className="w-full pl-12 pr-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-base"
+              value={search}
+              onChange={e => {
+                setPage(1);
+                setSearch(e.target.value);
+              }}
+              onKeyDown={e => {
+                if (e.key === 'Enter') {
+                  setPage(1);
+                  setDebouncedSearch(search);
+                }
+              }}
             />
           </div>
         </div>
@@ -45,7 +88,7 @@ export default function EmployeeList() {
         {/* Table */}
         <table className="w-full text-left border-collapse">
           <thead>
-            <tr className="bg-gray-50 text-gray-600 text-xs uppercase tracking-wider">
+            <tr className="bg-indigo-50 text-indigo-700 text-xs uppercase tracking-wider">
               <th className="px-6 py-4 font-semibold">Nhân viên</th>
               <th className="px-6 py-4 font-semibold">Phòng ban / Chức vụ</th>
               <th className="px-6 py-4 font-semibold">Tài khoản hệ thống</th>
@@ -53,9 +96,13 @@ export default function EmployeeList() {
               <th className="px-6 py-4 font-semibold text-center">Thao tác</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-200">
-            {filteredData.map((emp) => (
-              <tr key={emp.asset_holder_id} className="hover:bg-gray-50 transition-colors">
+          <tbody className="divide-y divide-gray-100">
+            {loading ? (
+              <tr><td colSpan="5" className="text-center py-8">Đang tải dữ liệu...</td></tr>
+            ) : error ? (
+              <tr><td colSpan="5" className="text-center text-red-500 py-8">{error}</td></tr>
+            ) : data.map((emp) => (
+              <tr key={emp.asset_holder_id} className="hover:bg-indigo-50 transition-colors">
                 <td className="px-6 py-4">
                   <div className="flex items-center">
                     <div className="h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold mr-3">
@@ -93,7 +140,7 @@ export default function EmployeeList() {
                 <td className="px-6 py-4 text-center">
                   <button 
                     onClick={() => navigate(`/employees/${emp.asset_holder_id}`)}
-                    className="text-gray-400 hover:text-indigo-600 p-1 rounded hover:bg-indigo-50 transition-colors"
+                    className="text-gray-400 hover:text-white hover:bg-indigo-500 p-1 rounded transition-colors"
                   >
                     <Eye size={20} />
                   </button>
@@ -102,6 +149,27 @@ export default function EmployeeList() {
             ))}
           </tbody>
         </table>
+      </div>
+      {/* Pagination */}
+      <div className="flex justify-between items-center px-4 py-3 border-t border-gray-100 bg-indigo-50">
+        <div className="text-sm text-gray-600">Tổng số: {total}</div>
+        <div className="flex gap-2">
+          <button
+            className="px-3 py-1 rounded border text-indigo-700 bg-white hover:bg-indigo-100 hover:text-indigo-900 disabled:opacity-50"
+            onClick={() => setPage(p => Math.max(1, p - 1))}
+            disabled={page === 1}
+          >
+            Trước
+          </button>
+          <span className="px-2 py-1">Trang {page} / {totalPages}</span>
+          <button
+            className="px-3 py-1 rounded border text-indigo-700 bg-white hover:bg-indigo-100 hover:text-indigo-900 disabled:opacity-50"
+            onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+            disabled={page === totalPages}
+          >
+            Sau
+          </button>
+        </div>
       </div>
     </div>
   );

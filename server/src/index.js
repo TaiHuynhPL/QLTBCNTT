@@ -1,49 +1,5 @@
-// const express = require('express');
-// const cors = require('cors');
-// require('dotenv').config();
-// const pool = require('./db');
-
-// const app = express();
-
-// app.use(cors({
-//     origin: '*',
-//     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-//     allowedHeaders: ['Content-Type', 'Authorization'],
-//     credentials: true
-// }));
-
-// app.use(express.json());
-
-// app.get('/health', async (req, res) => {
-//     try {
-//         await pool.query('SELECT 1');
-//         res.status(200).json({ status: 'OK', message: 'Database connected' });
-//     } catch (err) {
-//         res.status(500).json({ status: 'Error', message: err.message });
-//     }
-// });
-
-// const startServer = async () => {
-//     try {
-//         const client = await pool.connect();
-//         console.log("✅ Database connected successfully");
-//         client.release();
-
-//         const PORT = process.env.PORT || 5000;
-//         app.listen(PORT, () => {
-//             console.log(`🚀 Server running at http://localhost:${PORT}`);
-//         });
-//     } catch (err) {
-//         console.error("❌ Database connection error:", err.message);
-//         process.exit(1);
-//     }
-// };
-
-// startServer();
-
-
-
 import express from 'express';
+import cookieParser from 'cookie-parser';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import sequelize from './config/database.js';
@@ -56,6 +12,7 @@ import assignmentRoutes from './routes/assignments.js';
 import purchaseOrderRoutes from './routes/purchaseOrders.js';
 import consumableRoutes from './routes/consumables.js';
 import maintenanceRoutes from './routes/maintenance.js';
+import holderRoutes from './routes/holders.js';
 import dashboardRoutes from './routes/dashboard.js';
 import activityLogRoutes from './routes/activityLogs.js';
 
@@ -71,6 +28,7 @@ app.use(cors({
 }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser());
 
 // Request logging
 app.use((req, res, next) => {
@@ -87,6 +45,7 @@ app.use('/api/consumables', consumableRoutes);
 app.use('/api/maintenance', maintenanceRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/activity-logs', activityLogRoutes);
+app.use('/api/holders', holderRoutes);
 
 // Health check
 app.get('/health', (req, res) => {

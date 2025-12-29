@@ -8,66 +8,24 @@ import {
   ArrowUpRight, ArrowDownRight, HardDrive, Cpu, Wifi 
 } from 'lucide-react';
 
-// --- MOCK DATA (Mô phỏng Schema DB) ---
+// Map tên icon sang component lucide-react
+const ICON_MAP = {
+  Server,
+  Activity,
+  Package,
+  HardDrive,
+  Cpu,
+  Wifi,
+  AlertTriangle,
+  ArrowUpRight,
+  ArrowDownRight,
+};
 
-// 1. Thống kê tổng quan (KPIs)
-const kpiData = [
-  { 
-    title: 'Tổng tài sản', 
-    value: '1,248', 
-    sub: '+12 nhập mới tháng này', 
-    icon: Server, 
-    color: 'bg-blue-500' 
-  },
-  { 
-    title: 'Giá trị ước tính', 
-    value: '4.2 Tỷ VNĐ', 
-    sub: 'Khấu hao 5% so với quý trước', 
-    icon: Activity, 
-    color: 'bg-green-500' 
-  },
-  { 
-    title: 'Đang bảo trì/Sửa chữa', 
-    value: '15', 
-    sub: 'Cần xử lý gấp: 3', 
-    icon: AlertTriangle, 
-    color: 'bg-amber-500' 
-  },
-  { 
-    title: 'Cảnh báo sắp hết hàng', 
-    value: '8', 
-    sub: 'Dây nhảy quang, Chuột, RAM', 
-    icon: Package, 
-    color: 'bg-red-500' 
-  },
-];
+import axios from '../api/axiosClient';
+import { useEffect, useState } from 'react';
 
-// 2. Dữ liệu biểu đồ phân bổ thiết bị theo danh mục (Pie Chart)
-const categoryData = [
-  { name: 'Máy chủ (Servers)', value: 120 },
-  { name: 'Mạng (Network)', value: 300 },
-  { name: 'PC/Laptop', value: 450 },
-  { name: 'Linh kiện/Khác', value: 378 },
-];
-const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042'];
-
-// 3. Dữ liệu biến động nhập/xuất kho 6 tháng gần nhất (Bar Chart)
-const movementData = [
-  { month: 'T7', nhap: 40, xuat: 24 },
-  { month: 'T8', nhap: 30, xuat: 18 },
-  { month: 'T9', nhap: 20, xuat: 50 },
-  { month: 'T10', nhap: 27, xuat: 38 },
-  { month: 'T11', nhap: 18, xuat: 40 },
-  { month: 'T12', nhap: 55, xuat: 30 },
-];
-
-// 4. Danh sách thiết bị mới nhập hoặc cần chú ý gần đây (Table)
-const recentActivities = [
-  { id: 'IVT-001', device: 'Cisco Switch 2960', type: 'Network', status: 'In Stock', date: '2023-12-20', user: 'Admin' },
-  { id: 'IVT-002', device: 'Dell PowerEdge R740', type: 'Server', status: 'Active', date: '2023-12-19', user: 'Nguyễn Văn A' },
-  { id: 'IVT-003', device: 'MacBook Pro M2', type: 'Laptop', status: 'Maintenance', date: '2023-12-18', user: 'Trần Thị B' },
-  { id: 'IVT-004', device: 'Dây cáp mạng Cat6', type: 'Accessory', status: 'Low Stock', date: '2023-12-18', user: 'Admin' },
-  { id: 'IVT-005', device: 'HP LaserJet Pro', type: 'Printer', status: 'Active', date: '2023-12-17', user: 'Lê Văn C' },
+const COLORS = [
+  '#6366F1', '#06B6D4', '#F59E42', '#F43F5E', '#10B981', '#FBBF24', '#3B82F6', '#A78BFA', '#F472B6', '#F87171'
 ];
 
 // --- COMPONENTS ---
@@ -87,41 +45,107 @@ const StatusBadge = ({ status }) => {
 };
 
 export default function Dashboard() {
+  const [kpiData, setKpiData] = useState([]);
+  const [categoryData, setCategoryData] = useState([]);
+  const [movementData, setMovementData] = useState([]);
+  const [recentActivities, setRecentActivities] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [stats, setStats] = useState(null);
+  const [assetDistribution, setAssetDistribution] = useState(null);
+
+  useEffect(() => {
+    setLoading(true);
+    setError(null);
+    Promise.all([
+      axios.get('/dashboard/kpis'),
+      axios.get('/dashboard/categories'),
+      axios.get('/dashboard/movements'),
+      axios.get('/dashboard/recent-activities'),
+      axios.get('/dashboard/stats'),
+      axios.get('/dashboard/asset-distribution')
+    ])
+      .then(([kpiRes, catRes, movRes, actRes, statsRes, distRes]) => {
+        setKpiData(kpiRes.data.data);
+        setCategoryData(catRes.data.data);
+        setMovementData(movRes.data.data);
+        setRecentActivities(actRes.data.data);
+        setStats(statsRes.data.data);
+        setAssetDistribution(distRes.data.data);
+      })
+      .catch(err => setError(err.response?.data?.error || 'Không thể tải dữ liệu dashboard'))
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) return <div className="p-8">Đang tải dữ liệu dashboard...</div>;
+  if (error) return <div className="p-8 text-red-500">{error}</div>;
+
+  // Lấy top 5 thiết bị phân bổ để hiển thị (theo số lượng lớn nhất)
+  const topCategoryData = [...categoryData]
+    .sort((a, b) => b.value - a.value)
+    .slice(0, 5);
+
   return (
-    <div className="h-full bg-gray-50 p-6">
+    <div className="min-h-screen bg-gray-50 p-4 md:p-8">
       {/* Header */}
-      <div className="mb-8 flex justify-between items-center">
+      <div className="mb-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-2">
         <div>
-          <h1 className="text-2xl font-bold text-gray-800">Dashboard Quản Lý Kho IT</h1>
-          <p className="text-gray-500 text-sm">Tổng quan hạ tầng và tài sản thiết bị</p>
+          <h1 className="text-3xl md:text-4xl font-extrabold text-indigo-700 tracking-tight mb-1 drop-shadow-sm">Dashboard Quản Lý Kho IT</h1>
+          <p className="text-gray-500 text-base md:text-lg">Tổng quan hạ tầng và tài sản thiết bị</p>
+        </div>
+        <div className="flex gap-2 mt-2 md:mt-0">
+          <span className="inline-block bg-indigo-50 text-indigo-700 px-3 py-1 rounded-full text-xs font-semibold shadow">Cập nhật: {new Date().toLocaleDateString()}</span>
         </div>
       </div>
 
       {/* KPI Cards Section */}
-      <div className="grid grid-cols-4 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8 w-full">
-        {kpiData.map((item, index) => (
-          <div key={index} className="bg-white rounded-xl shadow-sm p-6 border border-gray-100 hover:shadow-md transition-shadow flex flex-col justify-between">
-            <div className="flex items-center justify-between mb-4">
-              <div className={`p-3 rounded-lg ${item.color} bg-opacity-10`}>
-                <item.icon className={`w-6 h-6 ${item.color.replace('bg-', 'text-')}`} />
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 mb-8 w-full">
+        {kpiData.map((item, index) => {
+          const Icon = typeof item.icon === 'string' ? ICON_MAP[item.icon] : item.icon;
+          return (
+            <div key={index} className="bg-white rounded-2xl shadow-md p-6 border border-gray-100 hover:shadow-lg transition-shadow flex flex-col justify-between group relative overflow-hidden">
+              <div className="flex items-center justify-between mb-4">
+                <div className={`p-3 rounded-full ${item.color} bg-opacity-10 group-hover:scale-110 transition-transform`}>
+                  {Icon && <Icon className={`w-6 h-6 ${item.color.replace('bg-', 'text-')}`} />}
+                </div>
+                <span className="text-xs font-medium text-white bg-gradient-to-r from-indigo-400 to-cyan-400 px-2 py-1 rounded shadow">Tháng này</span>
               </div>
-              <span className="text-xs font-medium text-gray-400 bg-gray-50 px-2 py-1 rounded">Tháng này</span>
+              <h3 className="text-3xl font-extrabold text-gray-800 mb-1 drop-shadow-sm">{item.value}</h3>
+              <p className="text-base text-gray-600 font-semibold mb-1">{item.title}</p>
+              <p className="text-xs text-gray-400 mt-2 flex items-center">
+                {item.sub.includes('+') ? <ArrowUpRight className="w-3 h-3 text-green-500 mr-1"/> : <AlertTriangle className="w-3 h-3 text-amber-500 mr-1"/>}
+                {item.sub}
+              </p>
             </div>
-            <h3 className="text-3xl font-bold text-gray-800 mb-1">{item.value}</h3>
-            <p className="text-sm text-gray-500 font-medium">{item.title}</p>
-            <p className="text-xs text-gray-400 mt-2 flex items-center">
-              {item.sub.includes('+') ? <ArrowUpRight className="w-3 h-3 text-green-500 mr-1"/> : <AlertTriangle className="w-3 h-3 text-amber-500 mr-1"/>}
-              {item.sub}
-            </p>
-          </div>
-        ))}
+          );
+        })}
+        {/* KPI nhỏ bổ sung */}
+        {stats && (
+          <>
+            <div className="bg-white rounded-xl shadow-sm p-4 border border-gray-100 flex flex-col items-center justify-center">
+              <span className="text-xs font-medium text-gray-400 mb-1">Đang sửa chữa</span>
+              <span className="text-2xl font-bold text-yellow-500">{stats.assets.inRepair}</span>
+            </div>
+            <div className="bg-white rounded-xl shadow-sm p-4 border border-gray-100 flex flex-col items-center justify-center">
+              <span className="text-xs font-medium text-gray-400 mb-1">Đã thu hồi</span>
+              <span className="text-2xl font-bold text-gray-500">{stats.assets.retired}</span>
+            </div>
+            <div className="bg-white rounded-xl shadow-sm p-4 border border-gray-100 flex flex-col items-center justify-center">
+              <span className="text-xs font-medium text-gray-400 mb-1">Cảnh báo tồn kho</span>
+              <span className="text-2xl font-bold text-red-500">{stats.lowStockCount}</span>
+            </div>
+            <div className="bg-white rounded-xl shadow-sm p-4 border border-gray-100 flex flex-col items-center justify-center">
+              <span className="text-xs font-medium text-gray-400 mb-1">Phiếu mua chờ duyệt</span>
+              <span className="text-2xl font-bold text-indigo-500">{stats.pendingOrders}</span>
+            </div>
+          </>
+        )}
       </div>
 
       {/* Charts Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-        
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-8">
         {/* Bar Chart: Import/Export Stats */}
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 lg:col-span-2">
+        <div className="bg-white p-6 rounded-2xl shadow-md border border-gray-100 hover:shadow-lg transition-shadow flex flex-col justify-between">
           <h2 className="text-lg font-bold text-gray-800 mb-6">Biến động Nhập / Xuất Kho</h2>
           <div className="h-80">
             <ResponsiveContainer width="100%" height="100%">
@@ -140,92 +164,194 @@ export default function Dashboard() {
             </ResponsiveContainer>
           </div>
         </div>
-
-        {/* Pie Chart: Categories */}
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-          <h2 className="text-lg font-bold text-gray-800 mb-2">Phân bổ Thiết bị</h2>
-          <div className="h-64 flex justify-center items-center">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={categoryData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={60}
-                  outerRadius={80}
-                  paddingAngle={5}
-                  dataKey="value"
-                >
-                  {categoryData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip />
-                <Legend verticalAlign="bottom" height={36}/>
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-          <div className="mt-4 space-y-3">
-             {/* Custom Mini Legend/Stats below chart */}
-             <div className="flex justify-between items-center text-sm border-b border-gray-100 pb-2">
-                <div className="flex items-center gap-2">
-                   <Server size={16} className="text-blue-500" />
-                   <span className="text-gray-600">Máy chủ</span>
+        {/* Nhóm các PieChart vào 1 cột */}
+        <div className="flex flex-col gap-6">
+          {/* Pie Chart: Categories */}
+          <div className="bg-white p-6 rounded-2xl shadow-md border border-gray-100 hover:shadow-lg transition-shadow">
+            <h2 className="text-lg font-bold text-gray-800 mb-2">Phân bổ Thiết bị</h2>
+            <div className="h-64 flex justify-center items-center">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={topCategoryData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={60}
+                    outerRadius={80}
+                    paddingAngle={5}
+                    dataKey="value"
+                  >
+                    {topCategoryData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                  <Legend verticalAlign="bottom" height={36}/>
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="mt-4 space-y-3">
+              {topCategoryData.map((entry, idx) => (
+                <div key={entry.name} className={`flex justify-between items-center text-sm${idx < topCategoryData.length - 1 ? ' border-b border-gray-100 pb-2' : ''}`}>
+                  <div className="flex items-center gap-2">
+                    <span className="inline-block w-3 h-3 rounded-full" style={{ backgroundColor: COLORS[idx % COLORS.length] }}></span>
+                    <span className="text-gray-600">{entry.name}</span>
+                  </div>
+                  <span className="font-semibold">{entry.value}</span>
                 </div>
-                <span className="font-semibold">120</span>
-             </div>
-             <div className="flex justify-between items-center text-sm">
-                <div className="flex items-center gap-2">
-                   <Wifi size={16} className="text-green-500" />
-                   <span className="text-gray-600">Thiết bị mạng</span>
-                </div>
-                <span className="font-semibold">300</span>
-             </div>
+              ))}
+            </div>
           </div>
+          {/* Pie Chart: Asset Distribution by Location */}
+          {assetDistribution && assetDistribution.byLocation && assetDistribution.byLocation.length > 0 && (
+            <div className="bg-white p-6 rounded-2xl shadow-md border border-gray-100 hover:shadow-lg transition-shadow">
+              <h2 className="text-lg font-bold text-gray-800 mb-2">Phân bổ tài sản theo vị trí</h2>
+              <div className="flex flex-col md:flex-row gap-4">
+                <div className="h-64 w-full flex justify-center items-center">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={assetDistribution.byLocation
+                          .map(loc => loc.toJSON ? loc.toJSON() : loc)
+                          .sort((a, b) => Number(b.count) - Number(a.count))
+                          .slice(0, 5)
+                          .map(loc => ({
+                            name: loc.location && loc.location.location_name ? loc.location.location_name : `ID ${loc.location_id}`,
+                            value: Number(loc.count)
+                          }))}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={60}
+                        outerRadius={80}
+                        paddingAngle={5}
+                        dataKey="value"
+                      >
+                        {assetDistribution.byLocation
+                          .slice(0, 5)
+                          .map((entry, index) => (
+                            <Cell key={`cell-loc-${index}`} fill={COLORS[index % COLORS.length]} />
+                          ))}
+                      </Pie>
+                      <Tooltip />
+                      <Legend verticalAlign="bottom" height={36}/>
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+                <div className="mt-4 md:mt-0 w-full max-h-64 overflow-y-auto space-y-3 divide-y divide-gray-100">
+                  {assetDistribution.byLocation
+                    .map(loc => loc.toJSON ? loc.toJSON() : loc)
+                    .sort((a, b) => Number(b.count) - Number(a.count))
+                    .slice(0, 5)
+                    .map((loc, idx) => (
+                      <div key={loc.location_id} className="flex justify-between items-center text-sm py-2">
+                        <div className="flex items-center gap-2">
+                          <span className="inline-block w-3 h-3 rounded-full" style={{ backgroundColor: COLORS[idx % COLORS.length] }}></span>
+                          <span className="text-gray-600">{loc.location && loc.location.location_name ? loc.location.location_name : `ID ${loc.location_id}`}</span>
+                        </div>
+                        <span className="font-semibold">{loc.count}</span>
+                      </div>
+                    ))}
+                </div>
+              </div>
+            </div>
+          )}
+          {/* Pie Chart: Asset Distribution by Type */}
+          {assetDistribution && assetDistribution.byType && assetDistribution.byType.length > 0 && (
+            <div className="bg-white p-6 rounded-2xl shadow-md border border-gray-100 hover:shadow-lg transition-shadow">
+              <h2 className="text-lg font-bold text-gray-800 mb-2">Phân bổ tài sản theo loại</h2>
+              <div className="flex flex-col md:flex-row gap-4">
+                <div className="h-64 w-full flex justify-center items-center">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={assetDistribution.byType
+                          .map(type => type.toJSON ? type.toJSON() : type)
+                          .sort((a, b) => Number(b.count) - Number(a.count))
+                          .slice(0, 5)
+                          .map(type => ({
+                            name: type.assetModel && type.assetModel.asset_type ? type.assetModel.asset_type : `ID ${type.asset_model_id}`,
+                            value: Number(type.count)
+                          }))}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={60}
+                        outerRadius={80}
+                        paddingAngle={5}
+                        dataKey="value"
+                      >
+                        {assetDistribution.byType
+                          .slice(0, 5)
+                          .map((entry, index) => (
+                            <Cell key={`cell-type-${index}`} fill={COLORS[index % COLORS.length]} />
+                          ))}
+                      </Pie>
+                      <Tooltip />
+                      <Legend verticalAlign="bottom" height={36}/>
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+                <div className="mt-4 md:mt-0 w-full max-h-64 overflow-y-auto space-y-3 divide-y divide-gray-100">
+                  {assetDistribution.byType
+                    .map(type => type.toJSON ? type.toJSON() : type)
+                    .sort((a, b) => Number(b.count) - Number(a.count))
+                    .slice(0, 5)
+                    .map((type, idx) => (
+                      <div key={type.asset_model_id} className="flex justify-between items-center text-sm py-2">
+                        <div className="flex items-center gap-2">
+                          <span className="inline-block w-3 h-3 rounded-full" style={{ backgroundColor: COLORS[idx % COLORS.length] }}></span>
+                          <span className="text-gray-600">{type.assetModel && type.assetModel.asset_type ? type.assetModel.asset_type : `ID ${type.asset_model_id}`}</span>
+                        </div>
+                        <span className="font-semibold">{type.count}</span>
+                      </div>
+                    ))}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
-
-      {/* Recent Activity Table */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-        <div className="p-6 border-b border-gray-100 flex justify-between items-center">
-          <h2 className="text-lg font-bold text-gray-800">Hoạt động gần đây</h2>
-          <a href="#" className="text-indigo-600 text-sm font-medium hover:text-indigo-800">Xem tất cả</a>
+      {/* Recent Activity Timeline */}
+      <div className="bg-white rounded-2xl shadow-md border border-gray-100 overflow-hidden">
+        <div className="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+          <h2 className="text-lg md:text-xl font-bold text-indigo-700">Hoạt động gần đây</h2>
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-gray-50 text-gray-500 text-xs uppercase tracking-wider">
-                <th className="px-6 py-4 font-medium">Mã Tài Sản</th>
-                <th className="px-6 py-4 font-medium">Tên Thiết Bị</th>
-                <th className="px-6 py-4 font-medium">Danh mục</th>
-                <th className="px-6 py-4 font-medium">Trạng thái</th>
-                <th className="px-6 py-4 font-medium">Người phụ trách</th>
-                <th className="px-6 py-4 font-medium text-right">Ngày cập nhật</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100 text-sm">
-              {recentActivities.map((item) => (
-                <tr key={item.id} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-6 py-4 font-medium text-gray-900">{item.id}</td>
-                  <td className="px-6 py-4 text-gray-600">
-                    <div className="flex items-center gap-2">
-                      {item.type === 'Server' && <Server size={16} />}
-                      {item.type === 'Network' && <Wifi size={16} />}
-                      {item.type === 'Laptop' && <HardDrive size={16} />}
-                      {item.type === 'Printer' && <Package size={16} />}
-                      {item.device}
+        <div className="p-6">
+          <ol className="relative border-l-4 border-indigo-300 pl-6 space-y-10">
+            {recentActivities.map((item, idx) => (
+              <li key={item.activity_id} className="relative flex items-start group">
+                {/* Timeline dot */}
+                <span className="absolute -left-7 top-4 w-5 h-5 bg-gradient-to-br from-indigo-500 to-cyan-400 rounded-full border-4 border-white shadow-lg z-10"></span>
+                {/* Timeline line */}
+                {idx !== recentActivities.length - 1 && (
+                  <span className="absolute -left-2 top-8 w-1 h-[calc(100%-2rem)] bg-indigo-200 rounded"></span>
+                )}
+                {/* Card content */}
+                <div className="ml-2 flex-1">
+                  <div className="bg-white rounded-xl shadow-lg p-5 border border-gray-100 flex flex-col gap-2 transition-transform group-hover:scale-[1.02]">
+                    <div className="flex items-center gap-3 mb-1">
+                      <span className="text-xs font-normal text-gray-400">
+                        {item.action_timestamp ? new Date(item.action_timestamp).toLocaleString() : ''}
+                      </span>
+                      <span className="text-xs font-semibold text-indigo-600">{item.user}</span>
                     </div>
-                  </td>
-                  <td className="px-6 py-4 text-gray-500">{item.type}</td>
-                  <td className="px-6 py-4">
-                    <StatusBadge status={item.status} />
-                  </td>
-                  <td className="px-6 py-4 text-gray-500">{item.user}</td>
-                  <td className="px-6 py-4 text-gray-500 text-right">{item.date}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                    <div className="text-sm text-gray-700 font-medium mb-1 break-words">
+                      {item.description_vn}
+                    </div>
+                    {item.change_details && (
+                      <div className="flex flex-wrap gap-4 mt-1">
+                        {item.change_details.holder_name && (
+                          <div className="text-xs text-gray-500">Người nhận: <span className="font-medium text-gray-800">{item.change_details.holder_name}</span></div>
+                        )}
+                        {item.change_details.item_name && (
+                          <div className="text-xs text-gray-500">Thiết bị: <span className="font-medium text-gray-800">{item.change_details.item_name}</span></div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </li>
+            ))}
+          </ol>
         </div>
       </div>
     </div>

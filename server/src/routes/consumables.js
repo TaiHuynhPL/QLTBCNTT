@@ -28,10 +28,10 @@ router.get('/stock', authenticateToken, async (req, res) => {
       result = stocks.filter(stock => stock.quantity < stock.min_quantity);
     }
 
-    res.json({ stocks: result });
+    res.json({ success: true, data: result });
   } catch (error) {
     console.error('Get consumable stock error:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
 
@@ -50,10 +50,10 @@ router.get('/alerts', authenticateToken, async (req, res) => {
       ]
     });
 
-    res.json({ alerts: lowStockItems });
+    res.json({ success: true, data: lowStockItems });
   } catch (error) {
     console.error('Get low stock alerts error:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
 
@@ -74,7 +74,7 @@ router.post('/checkout',
 
       // Validate required fields
       if (!checkout_date || !asset_holder_id || !quantity_checked_out || !consumable_model_id || !location_id) {
-        return res.status(400).json({ error: 'Missing required fields' });
+        return res.status(400).json({ success: false, error: 'Missing required fields' });
       }
 
       // Find stock
@@ -83,12 +83,12 @@ router.post('/checkout',
       });
 
       if (!stock) {
-        return res.status(404).json({ error: 'Stock not found for this consumable at this location' });
+        return res.status(404).json({ success: false, error: 'Stock not found for this consumable at this location' });
       }
 
       // Check if sufficient stock
       if (stock.quantity < quantity_checked_out) {
-        return res.status(400).json({ error: 'Insufficient stock' });
+        return res.status(400).json({ success: false, error: 'Insufficient stock' });
       }
 
       // Create checkout record
@@ -109,10 +109,10 @@ router.post('/checkout',
         ]
       });
 
-      res.status(201).json({ data: createdCheckout });
+      res.status(201).json({ success: true, data: createdCheckout });
     } catch (error) {
       console.error('Checkout consumable error:', error);
-      res.status(500).json({ error: error.message || 'Internal server error' });
+      res.status(500).json({ success: false, error: 'Internal server error' });
     }
   }
 );
@@ -135,10 +135,10 @@ router.get('/checkouts', authenticateToken, async (req, res) => {
       order: [['checkout_date', 'DESC']]
     });
 
-    res.json({ checkouts });
+    res.json({ success: true, data: checkouts });
   } catch (error) {
     console.error('Get checkouts error:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
 
@@ -154,7 +154,7 @@ router.put('/stock/:id',
       const stock = await ConsumableStock.findByPk(req.params.id);
       
       if (!stock) {
-        return res.status(404).json({ error: 'Stock not found' });
+        return res.status(404).json({ success: false, error: 'Stock not found' });
       }
 
       await stock.update({
@@ -169,10 +169,10 @@ router.put('/stock/:id',
         ]
       });
 
-      res.json({ data: updatedStock });
+      res.json({ success: true, data: updatedStock });
     } catch (error) {
       console.error('Update stock error:', error);
-      res.status(500).json({ error: error.message || 'Internal server error' });
+      res.status(500).json({ success: false, error: 'Internal server error' });
     }
   }
 );

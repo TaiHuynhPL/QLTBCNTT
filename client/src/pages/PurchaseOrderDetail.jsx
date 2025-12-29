@@ -4,7 +4,7 @@ import {
   ArrowLeft, CheckCircle, XCircle, Truck, Package, 
   Printer, FileText, AlertTriangle 
 } from 'lucide-react';
-import { PO_MOCK } from './data/mockPurchaseData';
+import axios from '../api/axiosClient';
 
 const POStatusBadge = ({ status }) => {
   /* (Giữ nguyên code Badge như ở List component) */
@@ -16,34 +16,70 @@ export default function PurchaseOrderDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   
-  // Giả lập lấy data và state
-  const [po, setPo] = useState(PO_MOCK.find(p => String(p.purchase_order_id) === String(id)) || PO_MOCK[0]);
+  const [po, setPo] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  React.useEffect(() => {
+    setLoading(true);
+    setError(null);
+    axios.get(`/purchase-orders/${id}`)
+      .then(res => setPo(res.data.data))
+      .catch(err => setError(err.response?.data?.error || 'Không tìm thấy đơn hàng'))
+      .finally(() => setLoading(false));
+  }, [id]);
   const [showReceiveModal, setShowReceiveModal] = useState(false);
 
   // --- ACTIONS WORKFLOW ---
   
-  const handleApprove = () => {
+  // PUT: Duyệt đơn hàng
+  const handleApprove = async () => {
     if(window.confirm('Bạn xác nhận DUYỆT đơn hàng này?')) {
-      setPo({ ...po, status: 'Approved' });
+      setLoading(true);
+      setError(null);
+      try {
+        const res = await axios.put(`/purchase-orders/${id}`, { status: 'Approved' });
+        setPo(res.data.data || { ...po, status: 'Approved' });
+      } catch (err) {
+        setError(err.response?.data?.error || 'Có lỗi khi duyệt đơn hàng.');
+      } finally {
+        setLoading(false);
+      }
     }
   };
-
-  const handleReject = () => {
+  // PUT: Từ chối đơn hàng
+  const handleReject = async () => {
     if(window.confirm('Bạn muốn TỪ CHỐI đơn hàng này?')) {
-      setPo({ ...po, status: 'Rejected' });
+      setLoading(true);
+      setError(null);
+      try {
+        const res = await axios.put(`/purchase-orders/${id}`, { status: 'Rejected' });
+        setPo(res.data.data || { ...po, status: 'Rejected' });
+      } catch (err) {
+        setError(err.response?.data?.error || 'Có lỗi khi từ chối đơn hàng.');
+      } finally {
+        setLoading(false);
+      }
+    }
+  };
+  // PUT: Nhập kho
+  const handleStockIn = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await axios.put(`/purchase-orders/${id}`, { status: 'Completed' });
+      setShowReceiveModal(false);
+      setPo(res.data.data || { ...po, status: 'Completed' });
+      alert('Đã nhập kho thành công! Tài sản đã được tạo trong hệ thống.');
+    } catch (err) {
+      setError(err.response?.data?.error || 'Có lỗi khi nhập kho.');
+    } finally {
+      setLoading(false);
     }
   };
 
-  // Logic Nhập kho giả lập
-  const handleStockIn = () => {
-    // Trong thực tế: Đoạn này sẽ insert vào bảng assets (với serial number) và consumable_stocks
-    // Đồng thời update trạng thái PO thành Completed
-    setPo({ ...po, status: 'Completed' });
-    setShowReceiveModal(false);
-    alert('Đã nhập kho thành công! Tài sản đã được tạo trong hệ thống.');
-  };
-
-  if (!po) return <div>Không tìm thấy đơn hàng</div>;
+  if (loading) return <div>Đang tải dữ liệu...</div>;
+  if (error || !po) return <div>{error || 'Không tìm thấy đơn hàng'}</div>;
 
   return (
     <div className="p-6 bg-gray-50 min-h-screen font-sans">
@@ -79,7 +115,7 @@ export default function PurchaseOrderDetail() {
               </div>
               <div>
                 <p className="text-sm text-gray-500">Người tạo</p>
-                <p className="font-medium text-gray-900">{po.created_by}</p>
+                <p className="font-medium text-gray-900">{po.createdBy.username}</p>
               </div>
               <div className="col-span-2">
                 <p className="text-sm text-gray-500">Ghi chú</p>
@@ -100,15 +136,26 @@ export default function PurchaseOrderDetail() {
                   </tr>
                 </thead>
                 <tbody>
-                  {po.details.map((item, idx) => (
-                    <tr key={idx} className="border-b last:border-0">
-                      <td className="px-4 py-2 font-medium">{item.model_name}</td>
-                      <td className="px-4 py-2 text-center text-xs text-gray-500">{item.type}</td>
-                      <td className="px-4 py-2 text-center">{item.quantity}</td>
-                      <td className="px-4 py-2 text-right">{new Intl.NumberFormat('vi-VN').format(item.unit_price)}</td>
-                      <td className="px-4 py-2 text-right font-medium">{new Intl.NumberFormat('vi-VN').format(item.total_price)}</td>
-                    </tr>
-                  ))}
+                  {po.detailOrders.map((item, idx) => {
+                    let name = '';
+                    let type = '';
+                    if (item.assetModel) {
+                      name = item.assetModel.model_name;
+                      type = item.assetModel.asset_type;
+                    } else if (item.consumableModel) {
+                      name = item.consumableModel.consumable_model_name;
+                      type = 'Consumable';
+                    }
+                    return (
+                      <tr key={idx} className="border-b last:border-0">
+                        <td className="px-4 py-2 font-medium">{name}</td>
+                        <td className="px-4 py-2 text-center text-xs text-gray-500">{type}</td>
+                        <td className="px-4 py-2 text-center">{item.quantity}</td>
+                        <td className="px-4 py-2 text-right">{new Intl.NumberFormat('vi-VN').format(item.unit_price)}</td>
+                        <td className="px-4 py-2 text-right font-medium">{new Intl.NumberFormat('vi-VN').format(item.total_price)}</td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
                 <tfoot className="bg-gray-50">
                   <tr>
@@ -205,12 +252,23 @@ export default function PurchaseOrderDetail() {
             <div className="bg-gray-50 p-4 rounded border border-gray-200 mb-6">
                <h4 className="font-semibold text-sm mb-2">Tóm tắt nhập:</h4>
                <ul className="list-disc list-inside text-sm text-gray-700 space-y-1">
-                 {po.details.map((d, i) => (
-                   <li key={i}>
-                     <b>{d.quantity}</b> x {d.model_name} 
-                     <span className="text-xs bg-gray-200 ml-2 px-1 rounded">{d.type}</span>
-                   </li>
-                 ))}
+                 {po.detailOrders.map((d, i) => {
+                   let name = '';
+                   let type = '';
+                   if (d.assetModel) {
+                     name = d.assetModel.model_name;
+                     type = d.assetModel.asset_type;
+                   } else if (d.consumableModel) {
+                     name = d.consumableModel.consumable_model_name;
+                     type = 'Consumable';
+                   }
+                   return (
+                     <li key={i}>
+                       <b>{d.quantity}</b> x {name}
+                       <span className="text-xs bg-gray-200 ml-2 px-1 rounded">{type}</span>
+                     </li>
+                   );
+                 })}
                </ul>
             </div>
 

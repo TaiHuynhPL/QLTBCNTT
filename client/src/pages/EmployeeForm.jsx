@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import axios from '../api/axiosClient';
 import { 
   ArrowLeft, Save, User, Mail, Briefcase, 
   Shield, Key, CheckCircle, AlertCircle, UserPlus 
@@ -44,13 +45,16 @@ export default function EmployeeForm() {
     }
   }, [empData.email]);
 
-  const handleSubmit = (e) => {
+  const [loading, setLoading] = useState(false);
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    setLoading(true);
 
     // 1. Validate Basic
     if (!empData.employee_code || !empData.full_name) {
       setError('Vui lòng nhập Mã nhân viên và Họ tên.');
+      setLoading(false);
       return;
     }
 
@@ -58,35 +62,42 @@ export default function EmployeeForm() {
     if (createAccount) {
       if (!accountData.username || !accountData.password) {
         setError('Vui lòng nhập Username và Mật khẩu cho tài khoản hệ thống.');
+        setLoading(false);
         return;
       }
       if (accountData.password !== accountData.confirmPassword) {
         setError('Mật khẩu xác nhận không khớp.');
+        setLoading(false);
         return;
       }
       if (accountData.password.length < 6) {
         setError('Mật khẩu phải có ít nhất 6 ký tự.');
+        setLoading(false);
         return;
       }
     }
 
-    // 3. Mock Submit API
-    // Thực tế sẽ gọi transaction: Insert asset_holders -> lấy ID -> Insert system_users
-    const payload = {
-      asset_holder: empData,
-      system_user: createAccount ? {
-        username: accountData.username,
-        password: accountData.password, // Hash in backend
-        role: accountData.role
-      } : null
-    };
-
-    console.log("Submitting Payload:", payload);
-    
-    setSuccess(true);
-    setTimeout(() => {
-      navigate('/employees'); // Quay về danh sách sau 1.5s
-    }, 1500);
+    try {
+      // 3. Gửi API tạo asset_holder
+      const holderRes = await axios.post('/holders', empData);
+      // 4. Nếu có tạo tài khoản, gửi tiếp API tạo system_user
+      if (createAccount) {
+        await axios.post('/system-users', {
+          asset_holder_id: holderRes.data.asset_holder_id,
+          username: accountData.username,
+          password: accountData.password,
+          role: accountData.role
+        });
+      }
+      setSuccess(true);
+      setTimeout(() => {
+        navigate('/employees');
+      }, 1500);
+    } catch (err) {
+      setError(err.response?.data?.error || 'Lỗi khi lưu nhân viên hoặc tài khoản!');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -324,9 +335,10 @@ export default function EmployeeForm() {
               </button>
               <button
                 type="submit"
-                className="inline-flex justify-center py-2 px-6 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 flex items-center gap-2"
+                className="inline-flex justify-center py-2 px-6 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 flex items-center gap-2 disabled:opacity-60"
+                disabled={loading}
               >
-                <Save size={18} /> Lưu Nhân Viên
+                <Save size={18} /> {loading ? 'Đang lưu...' : 'Lưu Nhân Viên'}
               </button>
             </div>
           </form>

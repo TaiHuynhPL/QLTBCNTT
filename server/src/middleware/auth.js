@@ -5,15 +5,19 @@ const { SystemUser } = models;
 
 export const authenticateToken = async (req, res, next) => {
   try {
+    let token;
     const authHeader = req.headers['authorization'];
-    const token = authHeader && authHeader.split(' ')[1];
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      token = authHeader.split(' ')[1];
+    } else if (req.cookies && req.cookies.token) {
+      token = req.cookies.token;
+    }
 
     if (!token) {
       return res.status(401).json({ error: 'Access token required' });
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    
     const user = await SystemUser.findByPk(decoded.system_user_id, {
       attributes: { exclude: ['password_hash'] }
     });
