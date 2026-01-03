@@ -1,12 +1,15 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
-  Search, Plus, User, Shield, UserX, UserCheck, Eye 
+import {
+  Search, Plus, User, Shield, UserX, UserCheck, Eye
 } from 'lucide-react';
 import axios from '../api/axiosClient';
+import { useAuth } from '../context/AuthContext';
+import { AdminOrManager } from '../components/RoleGate';
 
 export default function EmployeeList() {
   const navigate = useNavigate();
+  const { hasPermission } = useAuth();
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -56,20 +59,22 @@ export default function EmployeeList() {
           <h1 className="text-3xl md:text-4xl font-extrabold text-indigo-700 tracking-tight mb-1 drop-shadow-sm">Danh sách Nhân viên</h1>
           <p className="text-gray-500 text-base md:text-lg">Quản lý nhân sự và phân quyền hệ thống</p>
         </div>
-        <button onClick={() => navigate('/holders/new')} className="flex items-center gap-2 bg-indigo-500 text-white px-5 py-2 rounded-xl hover:bg-indigo-600 shadow-md transition-all font-semibold">
-          <Plus size={18} /> Thêm nhân viên mới
-        </button>
+        <AdminOrManager>
+          <button onClick={() => navigate('/holders/new')} className="flex items-center gap-2 bg-indigo-500 text-white px-5 py-2 rounded-xl hover:bg-indigo-600 shadow-md transition-all font-semibold">
+            <Plus size={18} /> Thêm nhân viên mới
+          </button>
+        </AdminOrManager>
       </div>
 
       <div className="bg-white rounded-2xl shadow-md border border-gray-100 overflow-hidden">
         {/* Toolbar */}
-        <div className="p-6 border-b border-gray-100 flex gap-4">
+        <div className="p-4 border-b border-gray-100 flex gap-4">
           <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-3 top-3 text-gray-400" size={20} />
+            <Search className="absolute left-3 top-2.5 text-gray-400" size={18} />
             <input
               type="text"
               placeholder="Tìm tên, mã nhân viên..."
-              className="w-full pl-12 pr-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-base"
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none bg-white"
               value={search}
               onChange={e => {
                 setPage(1);
@@ -109,13 +114,13 @@ export default function EmployeeList() {
                       {emp.full_name.charAt(0)}
                     </div>
                     <div>
-                      <div className="font-medium text-gray-900">{emp.full_name}</div>
-                      <div className="text-xs text-gray-500">{emp.employee_code} | {emp.email}</div>
+                      <div className="font-bold text-indigo-600 text-base">{emp.full_name}</div>
+                      <div className="text-xs text-gray-500 font-mono">{emp.employee_code} | {emp.email}</div>
                     </div>
                   </div>
                 </td>
                 <td className="px-6 py-4">
-                  <div className="text-sm text-gray-900">{emp.job_title}</div>
+                  <div className="text-sm font-semibold text-gray-900">{emp.job_title}</div>
                   <div className="text-xs text-gray-500">{emp.department}</div>
                 </td>
                 <td className="px-6 py-4">
@@ -123,12 +128,12 @@ export default function EmployeeList() {
                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border
                       ${emp.system_user.user_role === 'Admin' ? 'bg-purple-100 text-purple-800 border-purple-200' : 'bg-blue-50 text-blue-700 border-blue-200'}
                     `}>
-                      {emp.system_user.user_role === 'Admin' ? <Shield size={12} className="mr-1"/> : <User size={12} className="mr-1"/>}
+                      {emp.system_user.user_role === 'Admin' ? <Shield size={12} className="mr-1" /> : <User size={12} className="mr-1" />}
                       {emp.system_user.username} ({emp.system_user.user_role})
                     </span>
                   ) : (
                     <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-500 border border-gray-200">
-                      <UserX size={12} className="mr-1"/> Chưa có TK
+                      <UserX size={12} className="mr-1" /> Chưa có TK
                     </span>
                   )}
                 </td>
@@ -138,7 +143,7 @@ export default function EmployeeList() {
                   </span>
                 </td>
                 <td className="px-6 py-4 text-center">
-                  <button 
+                  <button
                     onClick={() => navigate(`/employees/${emp.asset_holder_id}`)}
                     className="text-gray-400 hover:text-white hover:bg-indigo-500 p-1 rounded transition-colors"
                   >
@@ -149,26 +154,27 @@ export default function EmployeeList() {
             ))}
           </tbody>
         </table>
-      </div>
-      {/* Pagination */}
-      <div className="flex justify-between items-center px-4 py-3 border-t border-gray-100 bg-indigo-50">
-        <div className="text-sm text-gray-600">Tổng số: {total}</div>
-        <div className="flex gap-2">
-          <button
-            className="px-3 py-1 rounded border text-indigo-700 bg-white hover:bg-indigo-100 hover:text-indigo-900 disabled:opacity-50"
-            onClick={() => setPage(p => Math.max(1, p - 1))}
-            disabled={page === 1}
-          >
-            Trước
-          </button>
-          <span className="px-2 py-1">Trang {page} / {totalPages}</span>
-          <button
-            className="px-3 py-1 rounded border text-indigo-700 bg-white hover:bg-indigo-100 hover:text-indigo-900 disabled:opacity-50"
-            onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-            disabled={page === totalPages}
-          >
-            Sau
-          </button>
+
+        {/* Pagination */}
+        <div className="flex justify-between items-center px-4 py-3 border-t border-gray-100 bg-indigo-50">
+          <div className="text-sm text-gray-600">Tổng số: {total}</div>
+          <div className="flex gap-2">
+            <button
+              className="px-3 py-1 rounded border text-indigo-700 bg-white hover:bg-indigo-100 hover:text-indigo-900 disabled:opacity-50"
+              onClick={() => setPage(p => Math.max(1, p - 1))}
+              disabled={page === 1}
+            >
+              Trước
+            </button>
+            <span className="px-2 py-1">Trang {page} / {totalPages}</span>
+            <button
+              className="px-3 py-1 rounded border text-indigo-700 bg-white hover:bg-indigo-100 hover:text-indigo-900 disabled:opacity-50"
+              onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+              disabled={page === totalPages}
+            >
+              Sau
+            </button>
+          </div>
         </div>
       </div>
     </div>

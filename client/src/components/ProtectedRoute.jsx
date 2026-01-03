@@ -1,30 +1,24 @@
 
 import React, { useEffect, useState } from 'react';
 import { Navigate } from 'react-router-dom';
+import { AuthProvider, useAuth } from '../context/AuthContext';
 
-const ProtectedRoute = ({ children }) => {
-  const [checking, setChecking] = useState(true);
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+const ProtectedRouteContent = ({ children }) => {
+  const { loading, user } = useAuth();
 
-  useEffect(() => {
-    import('../api/axiosClient').then(m =>
-      m.default.get('/auth/me')
-        .then(() => {
-          setIsLoggedIn(true);
-          setChecking(false);
-        })
-        .catch(() => {
-          setIsLoggedIn(false);
-          setChecking(false);
-        })
-    );
-  }, []);
-
-  if (checking) return null;
-  if (!isLoggedIn) {
+  if (loading) return null;
+  if (!user) {
     return <Navigate to="/login" replace />;
   }
   return children;
+};
+
+const ProtectedRoute = ({ children }) => {
+  return (
+    <AuthProvider>
+      <ProtectedRouteContent>{children}</ProtectedRouteContent>
+    </AuthProvider>
+  );
 };
 
 export default ProtectedRoute;

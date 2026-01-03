@@ -3,6 +3,7 @@ import models from '../models/index.js';
 import { Op } from 'sequelize';
 import { authenticateToken, authorize } from '../middleware/auth.js';
 import { logActivity } from '../middleware/activityLogger.js';
+import { processStockIn, getStockInLocation } from '../utils/stockInHelper.js';
 
 const router = express.Router();
 const { PurchaseOrder, DetailOrder, Supplier, SystemUser, AssetModel, ConsumableModel } = models;
@@ -175,20 +176,105 @@ router.post('/',
 // Update purchase order status
 router.put('/:id',
   authenticateToken,
-  authorize('Admin', 'Manager'),
+  async (req, res, next) => {
+    // Check permissions based on status transition
+    const { status } = req.body;
+    const userRole = req.user.user_role;
+    const purchaseOrder = await PurchaseOrder.findByPk(req.params.id);
+
+    if (!purchaseOrder) {
+      return res.status(404).json({ success: false, error: 'Purchase order not found' });
+    }
+
+    const oldStatus = purchaseOrder.status;
+    const newStatus = status || purchaseOrder.status;
+
+    // Define who can perform each transition
+    const allowedTransitions = {
+      'Draft': {
+        'Pending Approval': ['Admin', 'Manager', 'Staff'], // submitPO
+        'Cancelled': ['Admin', 'Manager']
+      },
+      'Pending Approval': {
+        'Approved': ['Admin', 'Manager'], // approvePO
+        'Rejected': ['Admin', 'Manager'], // rejectPO
+        'Draft': ['Admin', 'Manager', 'Staff']
+      },
+      'Approved': {
+        'Completed': ['Admin', 'Manager', 'Staff'], // stockInPO
+        'Rejected': ['Admin', 'Manager']
+      },
+      'Rejected': {
+        'Draft': ['Admin', 'Manager']
+      },
+      'Completed': {},
+      'Cancelled': {}
+    };
+
+    // Check if this transition is allowed
+    const allowedRoles = allowedTransitions[oldStatus]?.[newStatus];
+    if (!allowedRoles) {
+      return res.status(400).json({
+        success: false,
+        error: `Cannot transition from ${oldStatus} to ${newStatus}`
+      });
+    }
+
+    if (!allowedRoles.includes(userRole)) {
+      return res.status(403).json({
+        success: false,
+        error: `You don't have permission to perform this action`
+      });
+    }
+
+    next();
+  },
   logActivity('UPDATE', 'purchase_orders'),
   async (req, res) => {
     try {
       const { status, notes } = req.body;
 
-      const purchaseOrder = await PurchaseOrder.findByPk(req.params.id);
+      const purchaseOrder = await PurchaseOrder.findByPk(req.params.id, {
+        include: [
+          { model: Supplier, as: 'supplier' },
+          {
+            model: DetailOrder,
+            as: 'detailOrders'
+          }
+        ]
+      });
       
       if (!purchaseOrder) {
         return res.status(404).json({ success: false, error: 'Purchase order not found' });
       }
 
+      const oldStatus = purchaseOrder.status;
+      const newStatus = status || purchaseOrder.status;
+
+      // Process stock-in when status changes to 'Completed'
+      let stockInResult = null;
+      if ((oldStatus !== 'Completed' && newStatus === 'Completed')) {
+        
+        if (purchaseOrder.detailOrders && purchaseOrder.detailOrders.length > 0) {
+          try {
+            const location = await getStockInLocation();
+            stockInResult = await processStockIn(
+              purchaseOrder.detailOrders,
+              location ? location.location_id : null,
+              purchaseOrder.supplier_id
+            );
+          } catch (stockInError) {
+            console.error('Stock-in processing error:', stockInError);
+            return res.status(400).json({
+              success: false,
+              error: `Failed to process stock-in: ${stockInError.message}`
+            });
+          }
+        }
+      }
+
       await purchaseOrder.update({
-        status: status || purchaseOrder.status,
+        status: newStatus,
         notes: notes !== undefined ? notes : purchaseOrder.notes
       });
 
@@ -207,9 +293,36 @@ router.put('/:id',
         ]
       });
 
-      res.json({ success: true, data: updatedOrder });
+      const response = { success: true, data: updatedOrder };
+      if (stockInResult) {
+        response.stockInResult = stockInResult;
+      }
+
+      res.json(response);
     } catch (error) {
       console.error('Update purchase order error:', error);
+      res.status(500).json({ success: false, error: 'Internal server error' });
+    }
+  }
+);
+
+// Delete purchase order (Admin and Manager only)
+router.delete('/:id',
+  authenticateToken,
+  authorize('Admin', 'Manager'),
+  logActivity('DELETE', 'purchase_orders'),
+  async (req, res) => {
+    try {
+      const purchaseOrder = await PurchaseOrder.findByPk(req.params.id);
+
+      if (!purchaseOrder) {
+        return res.status(404).json({ success: false, error: 'Purchase order not found' });
+      }
+
+      await purchaseOrder.destroy();
+      res.json({ success: true, message: 'Purchase order deleted successfully' });
+    } catch (error) {
+      console.error('Delete purchase order error:', error);
       res.status(500).json({ success: false, error: 'Internal server error' });
     }
   }

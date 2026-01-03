@@ -1,12 +1,32 @@
 import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { 
-  ArrowLeft, Calendar, FileText, Wrench, History, 
-  UserCheck, ShieldCheck, MapPin, Box , Server, User
+import {
+  ArrowLeft, Calendar, FileText, Wrench, History,
+  UserCheck, ShieldCheck, MapPin, Box, Server, User
 } from 'lucide-react';
 import axios from '../api/axiosClient';
 
-
+// Component hiển thị Badge trạng thái dựa trên enum check trong DB
+const StatusBadge = ({ status }) => {
+  const styles = {
+    'Deployed': 'bg-green-100 text-green-800 border-green-200',
+    'In Stock': 'bg-blue-100 text-blue-800 border-blue-200',
+    'In Repair': 'bg-orange-100 text-orange-800 border-orange-200',
+    'Retired': 'bg-gray-100 text-gray-800 border-gray-200',
+  };
+  // Mapping tiếng Việt hiển thị
+  const labels = {
+    'Deployed': 'Đang cấp phát',
+    'In Stock': 'Trong kho',
+    'In Repair': 'Đang sửa chữa',
+    'Retired': 'Thanh lý/Hủy'
+  };
+  return (
+    <span className={`px-2.5 py-0.5 inline-flex text-xs font-medium rounded-full border ${styles[status]}`}>
+      {labels[status] || status}
+    </span>
+  );
+};
 
 export default function AssetDetail() {
   const { id } = useParams();
@@ -17,7 +37,7 @@ export default function AssetDetail() {
   const [maintenanceLogs, setMaintenanceLogs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  
+
   React.useEffect(() => {
     setLoading(true);
     setError(null);
@@ -160,9 +180,7 @@ export default function AssetDetail() {
           <div>
             <div className="flex items-center gap-4 mb-2">
               <h1 className="text-3xl font-bold text-gray-900 drop-shadow">{asset.asset_tag}</h1>
-              <span className="px-4 py-1 rounded-full bg-green-50 text-green-700 text-base font-semibold border border-green-200">
-                {asset.current_status}
-              </span>
+              <StatusBadge status={asset.current_status} />
             </div>
             <p className="text-gray-500 flex items-center gap-2 text-lg">
               <Box size={18} /> {asset.assetModel.manufacturer} {asset.assetModel.model_name}
@@ -170,12 +188,12 @@ export default function AssetDetail() {
               <span className="font-mono text-gray-600">{asset.serial_number}</span>
             </p>
           </div>
-          <div className="text-right">
-             <p className="text-base text-gray-500">Giá trị tài sản</p>
-             <p className="text-3xl font-bold text-indigo-600">{new Intl.NumberFormat('vi-VN').format(asset.purchase_cost)} ₫</p>
+          <div>
+            <p className="text-base text-gray-500">Giá trị tài sản</p>
+            <p className="text-3xl font-bold text-indigo-600">{new Intl.NumberFormat('vi-VN').format(asset.purchase_cost)} ₫</p>
           </div>
           {asset.current_status === 'In Stock' && (
-            <button 
+            <button
               onClick={() => navigate(`/assignments/new?assetId=${asset.asset_id}`)}
               className="bg-gradient-to-r from-indigo-500 to-cyan-500 text-white px-6 py-2 rounded-xl font-medium hover:from-indigo-600 hover:to-cyan-600 transition flex items-center gap-2 shadow"
             >
@@ -190,12 +208,14 @@ export default function AssetDetail() {
           {/* General Info Card */}
           <div className="bg-white rounded-2xl shadow-md border border-gray-100 p-8">
             <h3 className="text-xl font-semibold text-gray-800 mb-6 flex items-center gap-2">
-              <FileText size={22} className="text-indigo-500"/> Thông tin chung
+              <FileText size={22} className="text-indigo-500" /> Thông tin chung
             </h3>
             <div className="space-y-5">
               <div className="flex justify-between border-b border-gray-100 pb-2">
                 <span className="text-gray-500 text-base">Nhà cung cấp</span>
-                <span className="font-medium text-gray-900 text-base">{asset.supplier.supplier_name}</span>
+                <span className="font-medium text-gray-900 text-base">
+                  {asset.supplier ? asset.supplier.supplier_name : 'Không xác định'}
+                </span>
               </div>
               <div className="flex justify-between border-b border-gray-100 pb-2">
                 <span className="text-gray-500 text-base">Ngày mua</span>
@@ -204,13 +224,13 @@ export default function AssetDetail() {
               <div className="flex justify-between border-b border-gray-100 pb-2">
                 <span className="text-gray-500 text-base">Bảo hành (Tháng)</span>
                 <span className="font-medium text-gray-900 text-base flex items-center gap-1">
-                  <ShieldCheck size={16} className="text-green-500"/> {asset.warranty_months}
+                  <ShieldCheck size={16} className="text-green-500" /> {asset.warranty_months}
                 </span>
               </div>
               <div className="flex justify-between pt-1">
                 <span className="text-gray-500 text-base">Vị trí hiện tại</span>
                 <span className="font-medium text-gray-900 text-base flex items-center gap-1 text-right">
-                  <MapPin size={16} className="text-red-500"/> {asset.location.location_name}
+                  <MapPin size={16} className="text-red-500" /> {asset.location.location_name}
                 </span>
               </div>
             </div>
@@ -218,7 +238,7 @@ export default function AssetDetail() {
           {/* JSONB Specifications Card */}
           <div className="bg-white rounded-2xl shadow-md border border-gray-100 p-8">
             <h3 className="text-xl font-semibold text-gray-800 mb-6 flex items-center gap-2">
-              <Server size={22} className="text-indigo-500"/> Cấu hình (JSONB)
+              <Server size={22} className="text-indigo-500" /> Cấu hình
             </h3>
             <div className="bg-cyan-50 rounded-xl p-5 border border-cyan-100">
               {/* Render dynamic keys from JSONB object */}
@@ -236,19 +256,19 @@ export default function AssetDetail() {
           <div className="bg-white rounded-2xl shadow-md border border-gray-100 min-h-[500px]">
             {/* Tabs */}
             <div className="flex border-b border-gray-100">
-              <button 
+              <button
                 onClick={() => setActiveTab('assignments')}
                 className={`px-8 py-4 text-base font-medium border-b-2 transition-colors flex items-center gap-2
                   ${activeTab === 'assignments' ? 'border-indigo-600 text-indigo-600 bg-indigo-50' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
               >
-                <History size={20}/> Lịch sử luân chuyển (Assignments)
+                <History size={20} /> Lịch sử luân chuyển (Assignments)
               </button>
-              <button 
+              <button
                 onClick={() => setActiveTab('maintenance')}
                 className={`px-8 py-4 text-base font-medium border-b-2 transition-colors flex items-center gap-2
                   ${activeTab === 'maintenance' ? 'border-indigo-600 text-indigo-600 bg-indigo-50' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
               >
-                <Wrench size={20}/> Nhật ký bảo trì (Maintenance Logs)
+                <Wrench size={20} /> Nhật ký bảo trì (Maintenance Logs)
               </button>
             </div>
             {/* Content Area */}
@@ -275,16 +295,16 @@ export default function AssetDetail() {
                           </span>
                         </div>
                         <div className="mt-3 text-base text-gray-600 bg-cyan-50 p-4 rounded-xl border border-cyan-100 grid grid-cols-2 gap-6">
-                           <div>
-                              <span className="block text-xs text-gray-400">Ngày nhận</span>
-                              <span className="font-medium">{log.assignment_date}</span>
-                           </div>
-                           {log.return_date && (
-                             <div>
-                                <span className="block text-xs text-gray-400">Ngày trả</span>
-                                <span className="font-medium">{log.return_date}</span>
-                             </div>
-                           )}
+                          <div>
+                            <span className="block text-xs text-gray-400">Ngày nhận</span>
+                            <span className="font-medium">{log.assignment_date}</span>
+                          </div>
+                          {log.return_date && (
+                            <div>
+                              <span className="block text-xs text-gray-400">Ngày trả</span>
+                              <span className="font-medium">{log.return_date}</span>
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -297,16 +317,16 @@ export default function AssetDetail() {
                     <div key={log.maintenance_log_id} className="border border-cyan-100 rounded-xl p-6 hover:shadow-md transition-shadow bg-cyan-50">
                       <div className="flex justify-between items-start mb-3">
                         <div className="flex items-center gap-3">
-                           <Calendar size={18} className="text-cyan-500"/>
-                           <span className="font-medium text-gray-900 text-lg">{log.maintenance_date}</span>
+                          <Calendar size={18} className="text-cyan-500" />
+                          <span className="font-medium text-gray-900 text-lg">{log.maintenance_date}</span>
                         </div>
                         <span className="font-bold text-red-600 text-lg">
-                           -{new Intl.NumberFormat('vi-VN').format(log.maintenance_cost)} ₫
+                          -{new Intl.NumberFormat('vi-VN').format(log.maintenance_cost)} ₫
                         </span>
                       </div>
                       <p className="text-gray-700 text-base mb-4">{log.description}</p>
                       <div className="flex items-center gap-2 text-sm text-gray-500 bg-white w-fit px-3 py-1 rounded-lg border border-cyan-100">
-                        <User size={14}/> Kỹ thuật viên: {log.technician?.full_name || ''} {log.technician?.employee_code ? `(${log.technician.employee_code})` : ''}
+                        <User size={14} /> Kỹ thuật viên: {log.technician?.full_name || ''} {log.technician?.employee_code ? `(${log.technician.employee_code})` : ''}
                       </div>
                     </div>
                   ))}

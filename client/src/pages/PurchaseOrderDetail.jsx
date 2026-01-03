@@ -1,294 +1,343 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { 
-  ArrowLeft, CheckCircle, XCircle, Truck, Package, 
-  Printer, FileText, AlertTriangle 
+  ArrowLeft, CheckCircle, Package, Zap,
+  AlertCircle, Save, Send, Check, X, Truck, Lock
 } from 'lucide-react';
 import axios from '../api/axiosClient';
+import { useAuth } from '../context/AuthContext';
+import { PermissionGate } from '../components/RoleGate';
 
 const POStatusBadge = ({ status }) => {
-  /* (Giữ nguyên code Badge như ở List component) */
-  const styles = { 'Draft': 'bg-gray-100', 'Pending Approval': 'bg-yellow-100 text-yellow-800', 'Approved': 'bg-blue-100 text-blue-800', 'Completed': 'bg-green-100 text-green-800', 'Cancelled': 'line-through bg-gray-200' };
-  return <span className={`px-3 py-1 rounded-full text-sm font-bold ${styles[status]}`}>{status}</span>;
+  const styles = {
+    'Draft': 'bg-gray-100 text-gray-800',
+    'Pending Approval': 'bg-yellow-100 text-yellow-800',
+    'Approved': 'bg-blue-100 text-blue-800',
+    'Rejected': 'bg-red-100 text-red-800',
+    'Completed': 'bg-green-100 text-green-800',
+    'Cancelled': 'bg-gray-200 text-gray-500 line-through',
+  };
+  const labels = {
+    'Draft': 'Nháp',
+    'Pending Approval': 'Chờ duyệt',
+    'Approved': 'Đã duyệt',
+    'Rejected': 'Từ chối',
+    'Completed': 'Hoàn thành',
+    'Cancelled': 'Hủy',
+  };
+  return (
+    <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${styles[status] || 'bg-gray-100'}`}>
+      {labels[status] || status}
+    </span>
+  );
 };
 
 export default function PurchaseOrderDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { hasPermission } = useAuth();
   
   const [po, setPo] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [updating, setUpdating] = useState(false);
   const [error, setError] = useState(null);
+  const [stockInResult, setStockInResult] = useState(null);
 
-  React.useEffect(() => {
-    setLoading(true);
-    setError(null);
-    axios.get(`/purchase-orders/${id}`)
-      .then(res => setPo(res.data.data))
-      .catch(err => setError(err.response?.data?.error || 'Không tìm thấy đơn hàng'))
-      .finally(() => setLoading(false));
+  useEffect(() => {
+    const fetchPO = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const res = await axios.get(`/purchase-orders/${id}`);
+        setPo(res.data.data);
+      } catch (err) {
+        setError(err.response?.data?.error || 'Không thể tải đơn hàng');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchPO();
+    // eslint-disable-next-line
   }, [id]);
-  const [showReceiveModal, setShowReceiveModal] = useState(false);
 
-  // --- ACTIONS WORKFLOW ---
-  
-  // PUT: Duyệt đơn hàng
-  const handleApprove = async () => {
-    if(window.confirm('Bạn xác nhận DUYỆT đơn hàng này?')) {
-      setLoading(true);
-      setError(null);
-      try {
-        const res = await axios.put(`/purchase-orders/${id}`, { status: 'Approved' });
-        setPo(res.data.data || { ...po, status: 'Approved' });
-      } catch (err) {
-        setError(err.response?.data?.error || 'Có lỗi khi duyệt đơn hàng.');
-      } finally {
-        setLoading(false);
-      }
-    }
-  };
-  // PUT: Từ chối đơn hàng
-  const handleReject = async () => {
-    if(window.confirm('Bạn muốn TỪ CHỐI đơn hàng này?')) {
-      setLoading(true);
-      setError(null);
-      try {
-        const res = await axios.put(`/purchase-orders/${id}`, { status: 'Rejected' });
-        setPo(res.data.data || { ...po, status: 'Rejected' });
-      } catch (err) {
-        setError(err.response?.data?.error || 'Có lỗi khi từ chối đơn hàng.');
-      } finally {
-        setLoading(false);
-      }
-    }
-  };
-  // PUT: Nhập kho
-  const handleStockIn = async () => {
-    setLoading(true);
+  const handleQuickAction = async (newStatus) => {
+    setUpdating(true);
     setError(null);
     try {
-      const res = await axios.put(`/purchase-orders/${id}`, { status: 'Completed' });
-      setShowReceiveModal(false);
-      setPo(res.data.data || { ...po, status: 'Completed' });
-      alert('Đã nhập kho thành công! Tài sản đã được tạo trong hệ thống.');
+      const res = await axios.put(`/purchase-orders/${id}`, {
+        status: newStatus,
+        notes: ''
+      });
+
+      setPo(res.data.data);
+      
+      if (res.data.stockInResult) {
+        setStockInResult(res.data.stockInResult);
+      }
+      alert('Cập nhật thành công!');
     } catch (err) {
-      setError(err.response?.data?.error || 'Có lỗi khi nhập kho.');
+      const errorMsg = err.response?.data?.error || 'Không thể cập nhật trạng thái';
+      setError(errorMsg);
+      alert(errorMsg);
     } finally {
-      setLoading(false);
+      setUpdating(false);
     }
   };
 
-  if (loading) return <div>Đang tải dữ liệu...</div>;
-  if (error || !po) return <div>{error || 'Không tìm thấy đơn hàng'}</div>;
+  if (loading) return (
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <p className="text-gray-500">Đang tải dữ liệu...</p>
+    </div>
+  );
+
+  if (error || !po) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <p className="text-red-500">{error || 'Không tìm thấy đơn hàng'}</p>
+      </div>
+    );
+  }
 
   return (
-    <div className="p-6 bg-gray-50 min-h-screen font-sans">
-      {/* Header Navigation */}
-      <div className="flex justify-between items-start mb-6">
-        <button onClick={() => navigate('/purchase-orders')} className="flex items-center text-gray-500 hover:text-indigo-600 transition-colors">
-          <ArrowLeft size={20} className="mr-2" /> Danh sách PO
-        </button>
-        <div className="flex gap-2">
-          <button className="flex items-center gap-2 bg-white border border-gray-300 px-3 py-2 rounded text-gray-700 hover:bg-gray-50">
-            <Printer size={16}/> In phiếu
+    <div className="min-h-screen bg-gray-50 p-4 md:p-8 font-sans">
+      <div className="mx-auto">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-8">
+          <button 
+            onClick={() => navigate('/purchase-orders')}
+            className="flex items-center text-gray-500 hover:text-indigo-600 transition-colors"
+          >
+            <ArrowLeft size={22} className="mr-2" /> Quay lại
           </button>
+          <div className="text-right">
+            <h1 className="text-3xl font-bold text-gray-900">{po.order_code}</h1>
+            <p className="text-gray-500 text-sm mt-1">Mã đơn hàng</p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Main Info */}
+          <div className="lg:col-span-2 space-y-6">
+            {/* General Info */}
+            <div className="bg-white p-8 rounded-2xl shadow-md border border-gray-100">
+              <h3 className="font-semibold text-gray-800 mb-6 border-b pb-3 text-lg">Thông tin chung</h3>
+              <div className="grid grid-cols-2 gap-6">
+                <div>
+                  <p className="text-sm text-gray-500 mb-1">Mã đơn hàng</p>
+                  <p className="text-lg font-bold text-indigo-600">{po.order_code}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500 mb-1">Nhà cung cấp</p>
+                  <p className="text-lg font-semibold text-gray-800">{po.supplier?.supplier_name}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500 mb-1">Ngày đặt hàng</p>
+                  <p className="text-lg font-semibold text-gray-800">{po.order_date}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500 mb-1">Người tạo</p>
+                  <p className="text-lg font-semibold text-gray-800">{po.createdBy?.username}</p>
+                </div>
+                <div className="col-span-2">
+                  <p className="text-sm text-gray-500 mb-1">Ghi chú</p>
+                  <p className="text-gray-700">{po.notes || '(Không có ghi chú)'}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Detail Orders */}
+            <div className="bg-white p-8 rounded-2xl shadow-md border border-gray-100">
+              <h3 className="font-semibold text-gray-800 mb-6 border-b pb-3 text-lg">Chi tiết sản phẩm</h3>
+              <div className="space-y-4">
+                {po.detailOrders && po.detailOrders.map((detail, idx) => (
+                  <div key={idx} className="border border-gray-200 rounded-lg p-4 bg-gray-50 hover:border-indigo-200 transition">
+                    <div className="flex items-start gap-4">
+                      <div className="flex-shrink-0 p-3 bg-indigo-100 rounded-lg">
+                        {detail.assetModel ? (
+                          <Package className="text-indigo-600" size={24} />
+                        ) : (
+                          <Zap className="text-amber-600" size={24} />
+                        )}
+                      </div>
+                      <div className="flex-1">
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <h4 className="font-semibold text-gray-900 text-lg">
+                              {detail.assetModel?.model_name || detail.consumableModel?.consumable_model_name}
+                            </h4>
+                            <p className="text-sm text-gray-500 mt-1">
+                              {detail.assetModel ? 'Tài sản' : 'Vật tư tiêu hao'}
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-bold text-indigo-600 text-lg">
+                              {new Intl.NumberFormat('vi-VN').format(detail.total_price)} ₫
+                            </p>
+                            <p className="text-sm text-gray-500">Thành tiền</p>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-3 gap-4 mt-4">
+                          <div>
+                            <p className="text-xs text-gray-500">Số lượng</p>
+                            <p className="text-lg font-semibold text-gray-900">{detail.quantity}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-gray-500">Đơn giá</p>
+                            <p className="text-lg font-semibold text-gray-900">
+                              {new Intl.NumberFormat('vi-VN').format(detail.unit_price)} ₫
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Stock-In Result */}
+            {stockInResult && (
+              <div className="bg-green-50 border border-green-200 rounded-2xl p-6">
+                <div className="flex items-center gap-3 mb-4">
+                  <CheckCircle className="text-green-600" size={28} />
+                  <h3 className="font-semibold text-green-900 text-lg">Nhập kho thành công</h3>
+                </div>
+                
+                {stockInResult.assetsCreated && stockInResult.assetsCreated.length > 0 && (
+                  <div className="mb-6">
+                    <h4 className="font-semibold text-green-800 mb-3">Tài sản được tạo:</h4>
+                    <div className="space-y-2">
+                      {stockInResult.assetsCreated.map((asset, idx) => (
+                        <div key={idx} className="bg-white p-3 rounded-lg border border-green-100">
+                          <p className="text-sm text-gray-700">
+                            <span className="font-semibold">{asset.assetTag}</span> - {asset.assetModel}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {stockInResult.consumablesUpdated && stockInResult.consumablesUpdated.length > 0 && (
+                  <div>
+                    <h4 className="font-semibold text-green-800 mb-3">Vật tư được cập nhật:</h4>
+                    <div className="space-y-2">
+                      {stockInResult.consumablesUpdated.map((consumable, idx) => (
+                        <div key={idx} className="bg-white p-3 rounded-lg border border-green-100">
+                          <p className="text-sm text-gray-700">
+                            <span className="font-semibold">{consumable.consumableModelName}</span>
+                          </p>
+                          <p className="text-xs text-gray-500 mt-1">
+                            Tồn kho: {consumable.oldQuantity} → {consumable.newQuantity} (+ {consumable.addedQuantity})
+                            {consumable.isNew && <span className="ml-2 text-green-600 font-semibold">(Mới)</span>}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Sidebar - Status Update */}
+          <div className="lg:col-span-2">
+            {/* Total Amount */}
+            <div className="bg-gradient-to-br from-indigo-500 to-cyan-500 text-white p-8 rounded-2xl shadow-md mb-6">
+              <p className="text-sm opacity-90 mb-2">Tổng giá trị đơn hàng</p>
+              <p className="text-3xl font-bold">{new Intl.NumberFormat('vi-VN').format(po.total_amount)} ₫</p>
+            </div>
+
+            {/* Status Section */}
+            <div className="bg-white p-8 rounded-2xl shadow-md border border-gray-100 space-y-6">
+              <div>
+                <p className="text-sm text-gray-500 mb-2">Trạng thái hiện tại</p>
+                <POStatusBadge status={po.status} />
+              </div>
+
+              {/* Quick Action Buttons based on status */}
+              <div className="border-t pt-6 space-y-3">
+                {po.status === 'Draft' && (
+                  <>
+                    {hasPermission('submitPO') ? (
+                      <button
+                        onClick={() => handleQuickAction('Pending Approval')}
+                        disabled={updating}
+                        className="w-full bg-blue-500 text-white px-4 py-3 rounded-lg hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed font-medium flex items-center justify-center gap-2 transition"
+                      >
+                        <Send size={18} /> Gửi duyệt
+                      </button>
+                    ) : (
+                      <div className="w-full bg-gray-100 text-gray-500 px-4 py-3 rounded-lg font-medium flex items-center justify-center gap-2">
+                        <Lock size={18} /> Bạn không có quyền gửi duyệt
+                      </div>
+                    )}
+                  </>
+                )}
+
+                {po.status === 'Pending Approval' && (
+                  <div className="space-y-3">
+                    {hasPermission('approvePO') ? (
+                      <>
+                        <button
+                          onClick={() => handleQuickAction('Approved')}
+                          disabled={updating}
+                          className="w-full bg-green-500 text-white px-4 py-3 rounded-lg hover:bg-green-600 disabled:bg-gray-300 disabled:cursor-not-allowed font-medium flex items-center justify-center gap-2 transition"
+                        >
+                          <Check size={18} /> Phê duyệt
+                        </button>
+                        <button
+                          onClick={() => handleQuickAction('Rejected')}
+                          disabled={updating}
+                          className="w-full bg-red-500 text-white px-4 py-3 rounded-lg hover:bg-red-600 disabled:bg-gray-300 disabled:cursor-not-allowed font-medium flex items-center justify-center gap-2 transition"
+                        >
+                          <X size={18} /> Từ chối
+                        </button>
+                      </>
+                    ) : (
+                      <div className="w-full bg-gray-100 text-gray-500 px-4 py-3 rounded-lg font-medium flex items-center justify-center gap-2">
+                        <Lock size={18} /> Bạn không có quyền phê duyệt / từ chối
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {po.status === 'Approved' && (
+                  <>
+                    {hasPermission('stockInPO') ? (
+                      <button
+                        onClick={() => handleQuickAction('Completed')}
+                        disabled={updating}
+                        className="w-full bg-emerald-500 text-white px-4 py-3 rounded-lg hover:bg-emerald-600 disabled:bg-gray-300 disabled:cursor-not-allowed font-medium flex items-center justify-center gap-2 transition"
+                      >
+                        <Truck size={18} /> Nhập kho
+                      </button>
+                    ) : (
+                      <div className="w-full bg-gray-100 text-gray-500 px-4 py-3 rounded-lg font-medium flex items-center justify-center gap-2">
+                        <Lock size={18} /> Bạn không có quyền nhập kho
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <div className="flex gap-3">
+                  <AlertCircle className="text-blue-600 flex-shrink-0" size={20} />
+                  <div className="text-sm text-blue-800">
+                    <p className="font-semibold mb-1">Lưu ý:</p>
+                    <ul className="text-xs space-y-1 list-disc list-inside">
+                      <li>Mỗi tài sản sẽ được gán mã tag duy nhất</li>
+                      <li>Vật tư sẽ được thêm vào kho hàng</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
-        {/* Cột trái: Thông tin chính */}
-        <div className="lg:col-span-2 space-y-6">
-          <div className="bg-white p-6 rounded-xl shadow border border-gray-200">
-            <div className="flex justify-between items-start border-b border-gray-100 pb-4 mb-4">
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900">{po.order_code}</h1>
-                <p className="text-gray-500 text-sm mt-1">Ngày tạo: {po.order_date}</p>
-              </div>
-              <POStatusBadge status={po.status} />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4 mb-6">
-              <div>
-                <p className="text-sm text-gray-500">Nhà cung cấp</p>
-                <p className="font-medium text-gray-900">{po.supplier.supplier_name}</p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-500">Người tạo</p>
-                <p className="font-medium text-gray-900">{po.createdBy.username}</p>
-              </div>
-              <div className="col-span-2">
-                <p className="text-sm text-gray-500">Ghi chú</p>
-                <p className="text-gray-700 bg-gray-50 p-2 rounded mt-1 text-sm">{po.notes}</p>
-              </div>
-            </div>
-
-            <h3 className="font-semibold text-gray-800 mb-3">Chi tiết vật tư</h3>
-            <div className="overflow-hidden border border-gray-200 rounded-lg">
-              <table className="w-full text-left text-sm">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-4 py-2 border-b">Tên sản phẩm</th>
-                    <th className="px-4 py-2 border-b text-center">Loại</th>
-                    <th className="px-4 py-2 border-b text-center">SL</th>
-                    <th className="px-4 py-2 border-b text-right">Đơn giá</th>
-                    <th className="px-4 py-2 border-b text-right">Thành tiền</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {po.detailOrders.map((item, idx) => {
-                    let name = '';
-                    let type = '';
-                    if (item.assetModel) {
-                      name = item.assetModel.model_name;
-                      type = item.assetModel.asset_type;
-                    } else if (item.consumableModel) {
-                      name = item.consumableModel.consumable_model_name;
-                      type = 'Consumable';
-                    }
-                    return (
-                      <tr key={idx} className="border-b last:border-0">
-                        <td className="px-4 py-2 font-medium">{name}</td>
-                        <td className="px-4 py-2 text-center text-xs text-gray-500">{type}</td>
-                        <td className="px-4 py-2 text-center">{item.quantity}</td>
-                        <td className="px-4 py-2 text-right">{new Intl.NumberFormat('vi-VN').format(item.unit_price)}</td>
-                        <td className="px-4 py-2 text-right font-medium">{new Intl.NumberFormat('vi-VN').format(item.total_price)}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-                <tfoot className="bg-gray-50">
-                  <tr>
-                    <td colSpan="4" className="px-4 py-3 text-right font-bold text-gray-700">Tổng thanh toán:</td>
-                    <td className="px-4 py-3 text-right font-bold text-indigo-600 text-lg">
-                      {new Intl.NumberFormat('vi-VN').format(po.total_amount)} ₫
-                    </td>
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
-          </div>
-        </div>
-
-        {/* Cột phải: Workflow Actions */}
-        <div className="lg:col-span-1 space-y-6">
-          <div className="bg-white p-6 rounded-xl shadow border border-gray-200">
-            <h3 className="font-semibold text-gray-800 mb-4 flex items-center gap-2">
-              <FileText size={20} className="text-indigo-500"/> Quy trình xử lý
-            </h3>
-
-            {/* CASE 1: DRAFT */}
-            {po.status === 'Draft' && (
-              <div className="space-y-3">
-                <div className="p-3 bg-blue-50 text-blue-800 text-sm rounded border border-blue-100">
-                  Đơn hàng đang ở trạng thái Nháp. Vui lòng kiểm tra kỹ trước khi gửi duyệt.
-                </div>
-                <button 
-                  onClick={() => setPo({...po, status: 'Pending Approval'})}
-                  className="w-full bg-indigo-600 text-white py-2 rounded-lg font-medium hover:bg-indigo-700"
-                >
-                  Gửi duyệt (Submit)
-                </button>
-              </div>
-            )}
-
-            {/* CASE 2: PENDING APPROVAL (Giả sử User là Manager) */}
-            {po.status === 'Pending Approval' && (
-              <div className="space-y-3">
-                <div className="p-3 bg-yellow-50 text-yellow-800 text-sm rounded border border-yellow-100 flex gap-2">
-                  <AlertTriangle size={16} /> Cần phê duyệt từ Quản lý.
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <button onClick={handleReject} className="w-full border border-red-300 text-red-600 py-2 rounded-lg font-medium hover:bg-red-50">
-                    Từ chối
-                  </button>
-                  <button onClick={handleApprove} className="w-full bg-green-600 text-white py-2 rounded-lg font-medium hover:bg-green-700">
-                    Phê duyệt
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* CASE 3: APPROVED (Chờ nhập kho) */}
-            {po.status === 'Approved' && (
-              <div className="space-y-3">
-                 <div className="p-3 bg-green-50 text-green-800 text-sm rounded border border-green-100 flex gap-2">
-                  <CheckCircle size={16} /> Đơn hàng đã được duyệt. Sẵn sàng nhập kho.
-                </div>
-                <button 
-                  onClick={() => setShowReceiveModal(true)}
-                  className="w-full bg-indigo-600 text-white py-3 rounded-lg font-bold hover:bg-indigo-700 shadow-md flex justify-center items-center gap-2"
-                >
-                  <Truck size={20} /> TIẾN HÀNH NHẬP KHO
-                </button>
-              </div>
-            )}
-
-            {/* CASE 4: COMPLETED */}
-            {po.status === 'Completed' && (
-              <div className="p-4 bg-gray-100 text-gray-600 text-center rounded-lg border border-gray-200">
-                <CheckCircle size={32} className="mx-auto mb-2 text-green-500" />
-                <p className="font-medium">Đơn hàng đã hoàn tất</p>
-                <p className="text-xs mt-1">Hàng hóa đã được thêm vào hệ thống kho.</p>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* --- MODAL NHẬP KHO (SIMULATION) --- */}
-      {showReceiveModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg p-6 animate-fade-in-up">
-            <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
-              <Package className="text-indigo-600"/> Xác nhận Nhập kho
-            </h2>
-            <p className="text-gray-600 mb-6 text-sm">
-              Hệ thống sẽ tự động tạo bản ghi tài sản vào kho <b>"Kho Tổng"</b> dựa trên số lượng trong đơn hàng.
-              <br/><br/>
-              <i>Lưu ý: Trong thực tế, bước này bạn sẽ cần nhập/quét Serial Number cho từng thiết bị (Assets).</i>
-            </p>
-            
-            <div className="bg-gray-50 p-4 rounded border border-gray-200 mb-6">
-               <h4 className="font-semibold text-sm mb-2">Tóm tắt nhập:</h4>
-               <ul className="list-disc list-inside text-sm text-gray-700 space-y-1">
-                 {po.detailOrders.map((d, i) => {
-                   let name = '';
-                   let type = '';
-                   if (d.assetModel) {
-                     name = d.assetModel.model_name;
-                     type = d.assetModel.asset_type;
-                   } else if (d.consumableModel) {
-                     name = d.consumableModel.consumable_model_name;
-                     type = 'Consumable';
-                   }
-                   return (
-                     <li key={i}>
-                       <b>{d.quantity}</b> x {name}
-                       <span className="text-xs bg-gray-200 ml-2 px-1 rounded">{type}</span>
-                     </li>
-                   );
-                 })}
-               </ul>
-            </div>
-
-            <div className="flex justify-end gap-3">
-              <button 
-                onClick={() => setShowReceiveModal(false)}
-                className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
-              >
-                Hủy bỏ
-              </button>
-              <button 
-                onClick={handleStockIn}
-                className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-medium"
-              >
-                Xác nhận Nhập kho
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

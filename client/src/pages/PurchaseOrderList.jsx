@@ -1,7 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ShoppingCart, Plus, Filter, Search, Eye, FileCheck } from 'lucide-react';
+import { ShoppingCart, Plus, Filter, Search, Eye, FileCheck, Edit2, Trash2 } from 'lucide-react';
 import axios from '../api/axiosClient';
+import { useAuth } from '../context/AuthContext';
+import { PermissionGate } from '../components/RoleGate';
 
 const POStatusBadge = ({ status }) => {
   const styles = {
@@ -29,6 +31,7 @@ const POStatusBadge = ({ status }) => {
 
 export default function PurchaseOrderList() {
   const navigate = useNavigate();
+  const { hasPermission } = useAuth();
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -58,6 +61,17 @@ export default function PurchaseOrderList() {
       .finally(() => setLoading(false));
   };
 
+  const handleDeletePO = async (poId) => {
+    if (window.confirm('Bạn chắc chắn muốn xóa đơn hàng này?')) {
+      try {
+        await axios.delete(`/purchase-orders/${poId}`);
+        fetchPOs();
+      } catch (err) {
+        alert(err.response?.data?.error || 'Không thể xóa đơn hàng');
+      }
+    }
+  };
+
   useEffect(() => {
     fetchPOs();
     // eslint-disable-next-line
@@ -72,18 +86,20 @@ export default function PurchaseOrderList() {
   }, [search]);
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8 px-2 md:px-8 font-sans">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+    <div className="min-h-screen bg-gray-50 p-4 md:p-8 font-sans">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-2 mb-8">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 drop-shadow">Đơn Mua Hàng (PO)</h1>
-          <p className="text-base text-gray-600 mt-1">Quản lý quy trình mua sắm và nhập kho</p>
+          <h1 className="text-3xl md:text-4xl font-extrabold text-indigo-700 tracking-tight mb-1 drop-shadow-sm">Đơn Mua Hàng (PO)</h1>
+          <p className="text-gray-500 text-base md:text-lg">Quản lý quy trình mua sắm và nhập kho</p>
         </div>
-        <button 
-          onClick={() => navigate('/purchase-orders/new')}
-          className="flex items-center gap-2 bg-gradient-to-r from-indigo-500 to-cyan-500 text-white px-6 py-2 rounded-xl hover:from-indigo-600 hover:to-cyan-600 shadow transition-all text-base font-medium"
-        >
-          <Plus size={20} /> Tạo đơn hàng
-        </button>
+        <PermissionGate action="createPO">
+          <button 
+            onClick={() => navigate('/purchase-orders/new')}
+            className="flex items-center gap-2 bg-indigo-500 text-white px-5 py-2 rounded-xl hover:bg-indigo-600 shadow-md transition-all font-semibold"
+          >
+            <Plus size={18} /> Tạo đơn hàng
+          </button>
+        </PermissionGate>
       </div>
       <div className="bg-white rounded-2xl shadow-md border border-gray-100 overflow-hidden">
         {/* Toolbar */}
@@ -121,27 +137,45 @@ export default function PurchaseOrderList() {
           </thead>
           <tbody className="divide-y divide-gray-100">
             {loading ? (
-              <tr><td colSpan="6" className="text-center py-10 text-lg text-gray-500 animate-pulse">Đang tải dữ liệu...</td></tr>
+              <tr><td colSpan="6" className="text-center py-8">Đang tải dữ liệu...</td></tr>
             ) : error ? (
-              <tr><td colSpan="6" className="text-center text-red-500 py-10 text-lg">{error}</td></tr>
+              <tr><td colSpan="6" className="text-center text-red-500 py-8">{error}</td></tr>
             ) : data.map((po) => (
-              <tr key={po.purchase_order_id} className="hover:bg-cyan-50 transition-colors">
-                <td className="px-6 py-4 font-medium text-indigo-600">{po.order_code}</td>
+              <tr key={po.purchase_order_id} className="hover:bg-indigo-50 transition-colors">
+                <td className="px-6 py-4 font-bold text-indigo-600 text-base">{po.order_code}</td>
                 <td className="px-6 py-4 text-base text-gray-700">{po.supplier.supplier_name}</td>
                 <td className="px-6 py-4 text-base text-gray-500">{po.order_date}</td>
-                <td className="px-6 py-4 text-base font-bold text-gray-900">
-                  {new Intl.NumberFormat('vi-VN').format(po.total_amount)} ₫
+                <td className="px-6 py-4 text-right text-sm font-mono text-gray-700">
+                  {new Intl.NumberFormat('vi-VN').format(po.total_amount)}
                 </td>
                 <td className="px-6 py-4">
                   <POStatusBadge status={po.status} />
                 </td>
                 <td className="px-6 py-4 text-center">
-                  <button 
-                    onClick={() => navigate(`/purchase-orders/${po.purchase_order_id}`)}
-                    className="text-gray-400 hover:text-indigo-600 p-1" title="Xem chi tiết"
-                  >
-                    <Eye size={22} />
-                  </button>
+                  <div className="flex items-center justify-center gap-2">
+                    <button 
+                      onClick={() => navigate(`/purchase-orders/${po.purchase_order_id}`)}
+                      className="text-gray-400 hover:text-white hover:bg-indigo-500 p-1 rounded transition-colors" title="Xem chi tiết"
+                    >
+                      <Eye size={20} />
+                    </button>
+                    {/* <PermissionGate action="updatePO">
+                      <button 
+                        onClick={() => navigate(`/purchase-orders/${po.purchase_order_id}/edit`)}
+                        className="text-gray-400 hover:text-white hover:bg-yellow-500 p-1 rounded transition-colors" title="Chỉnh sửa"
+                      >
+                        <Edit2 size={20} />
+                      </button>
+                    </PermissionGate> */}
+                    <PermissionGate action="deletePO">
+                      <button 
+                        onClick={() => handleDeletePO(po.purchase_order_id)}
+                        className="text-gray-400 hover:text-white hover:bg-red-500 p-1 rounded transition-colors" title="Xóa"
+                      >
+                        <Trash2 size={20} />
+                      </button>
+                    </PermissionGate>
+                  </div>
                 </td>
               </tr>
             ))}

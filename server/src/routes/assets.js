@@ -115,10 +115,10 @@ router.get('/:id', authenticateToken, async (req, res) => {
   }
 });
 
-// Create asset
+// Create asset (Admin and Manager only)
 router.post('/', 
   authenticateToken, 
-  authorize('Admin', 'Manager', 'Staff'),
+  authorize('Admin', 'Manager'),
   logActivity('CREATE', 'assets'),
   async (req, res) => {
     try {
@@ -181,10 +181,10 @@ router.post('/',
   }
 );
 
-// Update asset
+// Update asset (Admin and Manager only)
 router.put('/:id',
   authenticateToken,
-  authorize('Admin', 'Manager', 'Staff'),
+  authorize('Admin', 'Manager'),
   captureOriginalData(Asset, 'id'),
   logActivity('UPDATE', 'assets'),
   async (req, res) => {

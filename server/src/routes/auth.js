@@ -2,12 +2,163 @@ import express from 'express';
 import jwt from 'jsonwebtoken';
 import { setTokenCookie, clearTokenCookie } from '../utils/cookie.js';
 import models from '../models/index.js';
-import { authenticateToken } from '../middleware/auth.js';
+import { authenticateToken, authorize } from '../middleware/auth.js';
+import { logActivity } from '../middleware/activityLogger.js';
 
 const router = express.Router();
 const { SystemUser, AssetHolder } = models;
 
-// Sign up (create new account)
+// Create user account (Admin only)
+router.post('/users',
+  authenticateToken,
+  authorize('Admin'),
+  logActivity('CREATE', 'system_users'),
+  async (req, res) => {
+    try {
+      const { username, password, user_role, asset_holder_id } = req.body;
+      if (!username || !password || !user_role) {
+        return res.status(400).json({ success: false, error: 'Username, password, and user_role are required' });
+      }
+
+      // Check if username already exists
+      const existingUser = await SystemUser.findOne({ where: { username } });
+      if (existingUser) {
+        return res.status(409).json({ success: false, error: 'Username already exists' });
+      }
+
+      // Optionally check asset_holder_id exists if provided
+      let assetHolder = null;
+      if (asset_holder_id) {
+        assetHolder = await AssetHolder.findByPk(asset_holder_id);
+        if (!assetHolder) {
+          return res.status(400).json({ success: false, error: 'Invalid asset_holder_id' });
+        }
+      }
+
+      // Create user
+      const newUser = await SystemUser.create({
+        username,
+        password_hash: password,
+        user_role,
+        asset_holder_id: asset_holder_id || null,
+        is_active: true
+      });
+
+      res.status(201).json({
+        success: true,
+        message: 'User created successfully',
+        data: {
+          system_user_id: newUser.system_user_id,
+          username: newUser.username,
+          user_role: newUser.user_role,
+          asset_holder_id: newUser.asset_holder_id
+        }
+      });
+    } catch (error) {
+      console.error('Create user error:', error);
+      res.status(500).json({ success: false, error: 'Internal server error' });
+    }
+  }
+);
+
+// Get all system users (Admin only)
+router.get('/users',
+  authenticateToken,
+  authorize('Admin'),
+  async (req, res) => {
+    try {
+      const users = await SystemUser.findAll({
+        attributes: { exclude: ['password_hash'] },
+        include: [{
+          model: AssetHolder,
+          as: 'assetHolder',
+          attributes: ['full_name', 'email', 'department']
+        }]
+      });
+
+      res.json({ success: true, data: users });
+    } catch (error) {
+      console.error('Get users error:', error);
+      res.status(500).json({ success: false, error: 'Internal server error' });
+    }
+  }
+);
+
+// Update user (Admin only)
+router.put('/users/:id',
+  authenticateToken,
+  authorize('Admin'),
+  logActivity('UPDATE', 'system_users'),
+  async (req, res) => {
+    try {
+      const { username, user_role, is_active, asset_holder_id } = req.body;
+      const user = await SystemUser.findByPk(req.params.id);
+
+      if (!user) {
+        return res.status(404).json({ success: false, error: 'User not found' });
+      }
+
+      // Check if new username exists (if changed)
+      if (username && username !== user.username) {
+        const existingUser = await SystemUser.findOne({ where: { username } });
+        if (existingUser) {
+          return res.status(409).json({ success: false, error: 'Username already exists' });
+        }
+      }
+
+      await user.update({
+        username: username || user.username,
+        user_role: user_role || user.user_role,
+        is_active: is_active !== undefined ? is_active : user.is_active,
+        asset_holder_id: asset_holder_id !== undefined ? asset_holder_id : user.asset_holder_id
+      });
+
+      const updatedUser = await SystemUser.findByPk(user.system_user_id, {
+        attributes: { exclude: ['password_hash'] },
+        include: [{
+          model: AssetHolder,
+          as: 'assetHolder',
+          attributes: ['full_name', 'email', 'department']
+        }]
+      });
+
+      res.json({ success: true, message: 'User updated successfully', data: updatedUser });
+    } catch (error) {
+      console.error('Update user error:', error);
+      res.status(500).json({ success: false, error: 'Internal server error' });
+    }
+  }
+);
+
+// Delete user (Admin only)
+router.delete('/users/:id',
+  authenticateToken,
+  authorize('Admin'),
+  logActivity('DELETE', 'system_users'),
+  async (req, res) => {
+    try {
+      const user = await SystemUser.findByPk(req.params.id);
+
+      if (!user) {
+        return res.status(404).json({ success: false, error: 'User not found' });
+      }
+
+      // Prevent deleting admin users if it's the last one
+      const adminCount = await SystemUser.count({ where: { user_role: 'Admin' } });
+      if (user.user_role === 'Admin' && adminCount === 1) {
+        return res.status(400).json({ success: false, error: 'Cannot delete the last admin user' });
+      }
+
+      await user.destroy();
+      res.json({ success: true, message: 'User deleted successfully' });
+    } catch (error) {
+      console.error('Delete user error:', error);
+      res.status(500).json({ success: false, error: 'Internal server error' });
+    }
+  }
+);
+
+// Sign up (create new account) - DEPRECATED, use /users endpoint
 router.post('/signup', async (req, res) => {
   try {
     const { username, password, user_role, asset_holder_id } = req.body;

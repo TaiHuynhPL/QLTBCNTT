@@ -8,9 +8,12 @@ import models from './models/index.js';
 // Import routes
 import authRoutes from './routes/auth.js';
 import assetRoutes from './routes/assets.js';
+import assetModelRoutes from './routes/assetModels.js';
+import supplierRoutes from './routes/suppliers.js';
 import assignmentRoutes from './routes/assignments.js';
 import purchaseOrderRoutes from './routes/purchaseOrders.js';
 import consumableRoutes from './routes/consumables.js';
+import consumableModelRoutes from './routes/consumableModels.js';
 import maintenanceRoutes from './routes/maintenance.js';
 import holderRoutes from './routes/holders.js';
 import dashboardRoutes from './routes/dashboard.js';
@@ -39,9 +42,12 @@ app.use((req, res, next) => {
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/assets', assetRoutes);
+app.use('/api/asset-models', assetModelRoutes);
+app.use('/api/suppliers', supplierRoutes);
 app.use('/api/assignments', assignmentRoutes);
 app.use('/api/purchase-orders', purchaseOrderRoutes);
 app.use('/api/consumables', consumableRoutes);
+app.use('/api/consumable-models', consumableModelRoutes);
 app.use('/api/maintenance', maintenanceRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/activity-logs', activityLogRoutes);
