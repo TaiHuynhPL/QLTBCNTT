@@ -18,6 +18,7 @@ import maintenanceRoutes from './routes/maintenance.js';
 import holderRoutes from './routes/holders.js';
 import dashboardRoutes from './routes/dashboard.js';
 import activityLogRoutes from './routes/activityLogs.js';
+import systemUsersRoutes from './routes/systemUsers.js';
 
 dotenv.config();
 
@@ -41,6 +42,7 @@ app.use((req, res, next) => {
 
 // Routes
 app.use('/api/auth', authRoutes);
+app.use('/api/system-users', systemUsersRoutes);
 app.use('/api/assets', assetRoutes);
 app.use('/api/asset-models', assetModelRoutes);
 app.use('/api/suppliers', supplierRoutes);

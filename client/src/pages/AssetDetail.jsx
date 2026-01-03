@@ -204,7 +204,7 @@ export default function AssetDetail() {
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Left Column: Properties & JSONB Specs */}
-        <div className="lg:col-span-1 space-y-8">
+        <div className="lg:col-span-2 space-y-8">
           {/* General Info Card */}
           <div className="bg-white rounded-2xl shadow-md border border-gray-100 p-8">
             <h3 className="text-xl font-semibold text-gray-800 mb-6 flex items-center gap-2">

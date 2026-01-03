@@ -6,7 +6,7 @@ import { Op } from 'sequelize';
 import { logActivity } from '../middleware/activityLogger.js';
 
 const router = express.Router();
-const { AssetHolder } = models;
+const { AssetHolder, SystemUser } = models;
 
 // GET /holders?search=...&page=1&limit=10 - All authenticated users can view
 router.get('/', authenticateToken, async (req, res) => {
@@ -37,7 +37,13 @@ router.get('/', authenticateToken, async (req, res) => {
 // GET /holders/:id - Lấy chi tiết AssetHolder - All authenticated users can view
 router.get('/:id', authenticateToken, async (req, res) => {
   try {
-    const holder = await AssetHolder.findByPk(req.params.id);
+    const holder = await AssetHolder.findByPk(req.params.id, {
+      include: [{
+        model: SystemUser,
+        as: 'systemUser',
+        attributes: { exclude: ['password_hash'] }
+      }]
+    });
     if (!holder) {
       return res.status(404).json({ success: false, error: 'Asset holder not found' });
     }

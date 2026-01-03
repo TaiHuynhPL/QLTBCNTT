@@ -13,6 +13,7 @@ import EmployeeList from './pages/EmployeeList';
 import EmployeeDetail from './pages/EmployeeDetail';
 import EmployeeForm from './pages/EmployeeForm';
 import ConsumableModelList from './pages/ConsumableModelList';
+import SystemUsers from './pages/SystemUsers';
 
 function App() {
   return (
@@ -38,6 +39,7 @@ function App() {
                     <Route path="/holders" element={<EmployeeList />} />
                     <Route path="/holders/new" element={<EmployeeForm />} />
                     <Route path="/employees/:id" element={<EmployeeDetail />} />
+                    <Route path="/system-users" element={<SystemUsers />} />
                   </Routes>
                 </main>
               </div>

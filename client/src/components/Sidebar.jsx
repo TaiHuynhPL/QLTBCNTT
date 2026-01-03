@@ -1,5 +1,5 @@
 
-import { LayoutDashboard, Box, ShoppingCart, Users, User, Settings, Zap } from 'lucide-react';
+import { LayoutDashboard, Box, ShoppingCart, Users, User, Settings, Zap, Shield } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
@@ -31,9 +31,6 @@ const Sidebar = () => {
         </div>
         <div className="flex-1">
           <div className="font-semibold text-sm truncate text-white">{username}</div>
-          <div className="text-xs px-2 py-0.5 rounded-full bg-indigo-600 text-indigo-100 text-center">
-            {user?.user_role || 'Unknown'}
-          </div>
         </div>
       </div>
 
@@ -62,20 +59,12 @@ const Sidebar = () => {
         <AdminOnly>
           <div className="pt-4 mt-6 border-t border-slate-700">
             <p className="text-xs font-semibold text-slate-400 uppercase px-4 mb-3">Quản lý hệ thống</p>
-            <Link to="/system/users" className="flex items-center gap-3 px-4 py-3 rounded-xl font-medium text-slate-200 hover:bg-slate-800 hover:text-cyan-400 transition group">
-              <Settings size={22} className="group-hover:text-cyan-400 transition" /> Tài khoản người dùng
+            <Link to="/system-users" className="flex items-center gap-3 px-4 py-3 rounded-xl font-medium text-slate-200 hover:bg-slate-800 hover:text-cyan-400 transition group">
+              <Shield size={22} className="group-hover:text-cyan-400 transition" /> Tài khoản người dùng
             </Link>
           </div>
         </AdminOnly>
       </nav>
-
-      <div className="mt-6 pt-4 border-t border-slate-700">
-        <p className="text-xs text-slate-400 text-center mb-3">
-          {user?.user_role === 'Admin' && 'Admin - Toàn quyền'}
-          {user?.user_role === 'Manager' && 'Manager - Quản lý ngoài tài khoản'}
-          {user?.user_role === 'Staff' && 'Staff - Quyền giới hạn'}
-        </p>
-      </div>
 
       <button
         onClick={handleLogout}

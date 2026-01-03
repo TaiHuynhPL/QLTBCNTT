@@ -2,13 +2,15 @@ import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { 
   ArrowLeft, Mail, Briefcase, User, ShieldCheck, 
-  Monitor, Key, Save, X 
+  Monitor, Key, Save, X, AlertCircle, RotateCcw
 } from 'lucide-react';
 import axios from '../api/axiosClient';
+import { useAuth } from '../context/AuthContext';
 
 export default function EmployeeDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { user, hasRole } = useAuth();
   
   const [employee, setEmployee] = useState(null);
   const [assetsHeld, setAssetsHeld] = useState([]);
@@ -20,15 +22,45 @@ export default function EmployeeDetail() {
     setError(null);
     Promise.all([
       axios.get(`/holders/${id}`),
-      axios.get(`/assets/holder/${id}`)
+      axios.get(`/assignments?asset_holder_id=${id}&active_only=true`)
     ])
       .then(([empRes, assetsRes]) => {
         setEmployee(empRes.data.data);
-        setAssetsHeld(assetsRes.data.data);
+        // Map assignments to assets with the relevant details
+        const assets = assetsRes.data.data.map(assignment => ({
+          assignment_id: assignment.assignment_id,
+          asset_id: assignment.asset.asset_id,
+          tag: assignment.asset.asset_tag,
+          asset_name: assignment.asset?.assetModel?.model_name || 'N/A',
+          date_assigned: assignment.assignment_date
+        }));
+        setAssetsHeld(assets);
       })
       .catch(() => setError('Không tìm thấy nhân viên'))
       .finally(() => setLoading(false));
   }, [id]);
+
+  // Xử lý thu hồi tài sản
+  const handleReturnAsset = async (assignmentId, assetData) => {
+    setLoading(true);
+    try {
+      await axios.put(`/assignments/${assignmentId}/return`, {
+        return_date: returnDate
+      });
+      
+      // Cập nhật danh sách tài sản bằng cách loại bỏ tài sản đã được thu hồi
+      setAssetsHeld(prev => prev.filter(a => a.asset_id !== assetData.asset_id));
+      
+      setShowReturnModal(false);
+      setSelectedAsset(null);
+      alert(`Đã thu hồi thành công tài sản: ${assetData.asset_name}`);
+    } catch (err) {
+      alert(err.response?.data?.error || 'Lỗi khi thu hồi tài sản!');
+      console.error('Return asset error:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
   
   // State cho Modal tạo System User
   const [showUserModal, setShowUserModal] = useState(false);
@@ -37,6 +69,11 @@ export default function EmployeeDetail() {
     password: '',
     role: 'Staff'
   });
+
+  // State cho Modal thu hồi tài sản
+  const [showReturnModal, setShowReturnModal] = useState(false);
+  const [selectedAsset, setSelectedAsset] = useState(null);
+  const [returnDate, setReturnDate] = useState(new Date().toISOString().split('T')[0]);
 
   if (loading) return (
     <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-indigo-50 via-cyan-50 to-white animate-pulse">
@@ -52,6 +89,13 @@ export default function EmployeeDetail() {
   // Xử lý tạo tài khoản System User
   const handleCreateSystemUser = async (e) => {
     e.preventDefault();
+    
+    // Kiểm tra quyền: chỉ Admin mới được cấp tài khoản
+    if (!hasRole('Admin')) {
+      alert('Chỉ Admin mới có quyền cấp tài khoản hệ thống!');
+      return;
+    }
+    
     setLoading(true);
     setError(null);
     try {
@@ -59,11 +103,11 @@ export default function EmployeeDetail() {
         asset_holder_id: id,
         username: userForm.username,
         password: userForm.password,
-        role: userForm.role
+        user_role: userForm.role
       });
       // Nếu API trả về user mới, cập nhật luôn, tránh GET lại
       if (res.data.data) {
-        setEmployee(prev => ({ ...prev, system_user: res.data.data }));
+        setEmployee(prev => ({ ...prev, systemUser: res.data.data }));
       } else {
         // fallback: refresh employee info
         const getRes = await axios.get(`/holders/${id}`);
@@ -120,30 +164,38 @@ export default function EmployeeDetail() {
             <h3 className="font-semibold text-gray-800 mb-5 flex items-center gap-2 text-lg">
               <ShieldCheck size={22} className="text-indigo-500"/> Tài khoản hệ thống
             </h3>
-            {employee.system_user ? (
+            {employee.systemUser ? (
               <div className="bg-green-50 rounded-xl p-5 border border-green-100">
                 <div className="flex justify-between items-start mb-2">
                   <span className="text-xs font-bold text-green-700 uppercase tracking-wide">Đã kích hoạt</span>
                   <button className="text-xs text-indigo-600 hover:underline">Reset Pass</button>
                 </div>
                 <div className="space-y-1">
-                  <p className="text-base text-gray-600">Username: <span className="font-medium text-gray-900">{employee.system_user.username}</span></p>
-                  <p className="text-base text-gray-600">Role: <span className="font-medium text-gray-900">{employee.system_user.user_role}</span></p>
-                  <p className="text-xs text-gray-400 mt-2">Last login: {employee.system_user.last_login || 'Chưa đăng nhập'}</p>
+                  <p className="text-base text-gray-600">Username: <span className="font-medium text-gray-900">{employee.systemUser.username}</span></p>
+                  <p className="text-base text-gray-600">Role: <span className="font-medium text-gray-900">{employee.systemUser.user_role}</span></p>
+                  <p className="text-xs text-gray-400 mt-2">Last login: {employee.systemUser.last_login || 'Chưa đăng nhập'}</p>
                 </div>
               </div>
             ) : (
               <div className="text-center py-6 bg-gray-50 rounded-xl border border-gray-100 border-dashed">
                 <p className="text-base text-gray-500 mb-4">Nhân viên này chưa có tài khoản đăng nhập.</p>
-                <button 
-                  onClick={() => {
-                    setUserForm({ ...userForm, username: employee.email.split('@')[0] });
-                    setShowUserModal(true);
-                  }}
-                  className="bg-indigo-500 text-white px-6 py-2 rounded-lg text-base font-medium hover:bg-indigo-600 transition flex items-center gap-2 mx-auto shadow"
-                >
-                  <Key size={18} /> Cấp quyền truy cập
-                </button>
+                {hasRole('Admin') ? (
+                  <button 
+                    onClick={() => {
+                      setUserForm({ ...userForm, username: employee.email.split('@')[0] });
+                      setShowUserModal(true);
+                    }}
+                    className="bg-indigo-500 text-white px-6 py-2 rounded-lg text-base font-medium hover:bg-indigo-600 transition flex items-center gap-2 mx-auto shadow"
+                  >
+                    <Key size={18} /> Cấp quyền truy cập
+                  </button>
+                ) : (
+                  <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
+                    <p className="text-sm text-yellow-800 flex items-center gap-2">
+                      <AlertCircle size={18} /> Chỉ Admin có quyền cấp tài khoản hệ thống
+                    </p>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -173,7 +225,17 @@ export default function EmployeeDetail() {
                         <td className="px-5 py-3 font-medium text-gray-900">{asset.asset_name}</td>
                         <td className="px-5 py-3 text-right text-gray-500">{asset.date_assigned}</td>
                         <td className="px-5 py-3 text-center">
-                          <button className="text-xs text-red-600 hover:text-red-800 hover:underline">Thu hồi</button>
+                          <button 
+                            onClick={() => {
+                              setSelectedAsset(asset);
+                              setReturnDate(new Date().toISOString().split('T')[0]);
+                              setShowReturnModal(true);
+                            }}
+                            className="text-xs text-red-600 hover:text-red-800 hover:bg-red-50 px-3 py-2 rounded transition flex items-center gap-1 mx-auto"
+                            title="Thu hồi tài sản"
+                          >
+                            <RotateCcw size={14} /> Thu hồi
+                          </button>
                         </td>
                       </tr>
                     ))}
@@ -186,6 +248,64 @@ export default function EmployeeDetail() {
           </div>
         </div>
       </div>
+
+      {/* --- MODAL THU HỒI TÀI SẢN --- */}
+      {showReturnModal && selectedAsset && (
+        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-fade-in-up">
+            <div className="bg-gradient-to-r from-orange-50 to-red-50 px-8 py-5 border-b border-gray-100 flex justify-between items-center">
+              <h3 className="font-bold text-gray-800 text-lg flex items-center gap-2">
+                <RotateCcw size={22} className="text-red-600"/> Thu hồi tài sản
+              </h3>
+              <button onClick={() => setShowReturnModal(false)} className="text-gray-400 hover:text-gray-600"><X size={22}/></button>
+            </div>
+            <div className="p-8 space-y-5">
+              <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+                <p className="text-sm text-orange-800 font-medium mb-2">Tài sản sẽ được thu hồi:</p>
+                <div className="bg-white p-3 rounded border border-orange-100">
+                  <p className="font-medium text-gray-900">{selectedAsset.asset_name}</p>
+                  <p className="text-xs text-gray-500">Mã: {selectedAsset.tag}</p>
+                  <p className="text-xs text-gray-500">Ngày nhận: {selectedAsset.date_assigned}</p>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-base font-medium text-gray-700 mb-2">Ngày thu hồi</label>
+                <input 
+                  type="date" 
+                  className="w-full border-gray-200 rounded-lg shadow-sm p-3 border focus:ring-2 focus:ring-red-400 focus:outline-none text-base"
+                  value={returnDate}
+                  onChange={e => setReturnDate(e.target.value)}
+                  min={selectedAsset.date_assigned}
+                />
+              </div>
+
+              <div className="bg-red-50 p-4 rounded-lg border border-red-200 text-sm text-red-800">
+                <p className="font-medium mb-1">⚠️ Xác nhận thu hồi</p>
+                <p>Hành động này sẽ đánh dấu tài sản là đã được thu hồi và trở về trạng thái "In Stock".</p>
+              </div>
+
+              <div className="pt-2 flex justify-end gap-4">
+                <button 
+                  type="button" 
+                  onClick={() => setShowReturnModal(false)} 
+                  className="px-5 py-2 text-gray-600 hover:bg-gray-100 rounded-lg text-base font-medium transition"
+                >
+                  Hủy
+                </button>
+                <button 
+                  type="button"
+                  onClick={() => handleReturnAsset(selectedAsset.assignment_id, selectedAsset)}
+                  disabled={loading}
+                  className="px-5 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium flex items-center gap-2 shadow text-base transition disabled:opacity-60"
+                >
+                  <RotateCcw size={18}/> Thu hồi ngay
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* --- MODAL TẠO SYSTEM USER --- */}
       {showUserModal && (
@@ -224,9 +344,9 @@ export default function EmployeeDetail() {
                   value={userForm.role}
                   onChange={e => setUserForm({...userForm, role: e.target.value})}
                 >
-                  <option value="Staff">Staff (Chỉ xem tài sản cá nhân)</option>
-                  <option value="Manager">Manager (Quản lý & Duyệt)</option>
-                  <option value="Admin">Admin (Toàn quyền)</option>
+                  <option value="Staff">Staff</option>
+                  <option value="Manager">Manager</option>
+                  <option value="Admin">Admin</option>
                 </select>
               </div>
               <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200 text-sm text-yellow-800">

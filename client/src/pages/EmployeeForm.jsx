@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from '../api/axiosClient';
+import { useAuth } from '../context/AuthContext';
 import { 
   ArrowLeft, Save, User, Mail, Briefcase, 
   Shield, Key, CheckCircle, AlertCircle, UserPlus 
@@ -8,6 +9,7 @@ import {
 
 export default function EmployeeForm() {
   const navigate = useNavigate();
+  const { user, hasRole } = useAuth();
 
   // --- STATE QUẢN LÝ FORM ---
   
@@ -60,6 +62,13 @@ export default function EmployeeForm() {
 
     // 2. Validate System User (Nếu có tick chọn)
     if (createAccount) {
+      // Kiểm tra quyền: chỉ Admin được cấp tài khoản
+      if (!hasRole('Admin')) {
+        setError('Chỉ Admin mới có quyền cấp tài khoản hệ thống. Vui lòng bỏ chọn "Cấp tài khoản ngay" hoặc liên hệ Admin.');
+        setLoading(false);
+        return;
+      }
+      
       if (!accountData.username || !accountData.password) {
         setError('Vui lòng nhập Username và Mật khẩu cho tài khoản hệ thống.');
         setLoading(false);
@@ -83,10 +92,10 @@ export default function EmployeeForm() {
       // 4. Nếu có tạo tài khoản, gửi tiếp API tạo system_user
       if (createAccount) {
         await axios.post('/system-users', {
-          asset_holder_id: holderRes.data.asset_holder_id,
+          asset_holder_id: holderRes.data.data.asset_holder_id,
           username: accountData.username,
           password: accountData.password,
-          role: accountData.role
+          user_role: accountData.role
         });
       }
       setSuccess(true);
@@ -231,6 +240,13 @@ export default function EmployeeForm() {
                   <Shield size={20} className="text-indigo-600"/> 2. Tài khoản đăng nhập
                 </h3>
                 
+                {/* Cảnh báo nếu không phải Admin */}
+                {!hasRole('Admin') && (
+                  <div className="text-xs bg-yellow-50 border border-yellow-200 text-yellow-700 px-3 py-2 rounded flex items-center gap-1">
+                    <AlertCircle size={16} /> Chỉ Admin có quyền cấp tài khoản
+                  </div>
+                )}
+                
                 {/* Toggle Switch */}
                 <div className="flex items-center">
                   <span className="mr-3 text-sm font-medium text-gray-900">
@@ -238,8 +254,15 @@ export default function EmployeeForm() {
                   </span>
                   <button
                     type="button"
-                    onClick={() => setCreateAccount(!createAccount)}
-                    className={`${createAccount ? 'bg-indigo-600' : 'bg-gray-200'} relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none`}
+                    onClick={() => {
+                      if (!hasRole('Admin') && !createAccount) {
+                        alert('Chỉ Admin mới có quyền cấp tài khoản hệ thống!');
+                        return;
+                      }
+                      setCreateAccount(!createAccount);
+                    }}
+                    className={`${createAccount ? 'bg-indigo-600' : 'bg-gray-200'} relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${!hasRole('Admin') ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    disabled={!hasRole('Admin')}
                   >
                     <span
                       className={`${createAccount ? 'translate-x-5' : 'translate-x-0'} pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out`}
@@ -251,6 +274,11 @@ export default function EmployeeForm() {
               {/* Conditional Form Fields */}
               {createAccount && (
                 <div className="bg-gray-50 p-6 rounded-lg border border-gray-200 animate-fade-in-down">
+                  {!hasRole('Admin') && (
+                    <div className="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded flex items-center gap-2">
+                      <AlertCircle size={20} /> Bạn không có quyền cấp tài khoản hệ thống. Vui lòng liên hệ Admin.
+                    </div>
+                  )}
                   <div className="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
                     
                     <div className="sm:col-span-3">
