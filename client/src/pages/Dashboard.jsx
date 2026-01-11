@@ -112,10 +112,10 @@ export default function Dashboard() {
               </div>
               <h3 className="text-3xl font-extrabold text-gray-800 mb-1 drop-shadow-sm">{item.value}</h3>
               <p className="text-base text-gray-600 font-semibold mb-1">{item.title}</p>
-              <p className="text-xs text-gray-400 mt-2 flex items-center">
+              {/* <p className="text-xs text-gray-400 mt-2 flex items-center">
                 {item.sub.includes('+') ? <ArrowUpRight className="w-3 h-3 text-green-500 mr-1"/> : <AlertTriangle className="w-3 h-3 text-amber-500 mr-1"/>}
                 {item.sub}
-              </p>
+              </p> */}
             </div>
           );
         })}

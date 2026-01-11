@@ -54,7 +54,7 @@ export default function EmployeeList() {
 
   return (
     <div className="min-h-screen bg-gray-50 p-4 md:p-8 font-sans">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-2 mb-8">
+      <div className="flex md:flex-row justify-between items-start md:items-center gap-2 mb-8">
         <div>
           <h1 className="text-3xl md:text-4xl font-extrabold text-indigo-700 tracking-tight mb-1 drop-shadow-sm">Danh sách Nhân viên</h1>
           <p className="text-gray-500 text-base md:text-lg">Quản lý nhân sự và phân quyền hệ thống</p>
@@ -124,12 +124,12 @@ export default function EmployeeList() {
                   <div className="text-xs text-gray-500">{emp.department}</div>
                 </td>
                 <td className="px-6 py-4">
-                  {emp.system_user ? (
+                  {emp.systemUser ? (
                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border
-                      ${emp.system_user.user_role === 'Admin' ? 'bg-purple-100 text-purple-800 border-purple-200' : 'bg-blue-50 text-blue-700 border-blue-200'}
+                      ${emp.systemUser.user_role === 'Admin' ? 'bg-purple-100 text-purple-800 border-purple-200' : 'bg-blue-50 text-blue-700 border-blue-200'}
                     `}>
-                      {emp.system_user.user_role === 'Admin' ? <Shield size={12} className="mr-1" /> : <User size={12} className="mr-1" />}
-                      {emp.system_user.username} ({emp.system_user.user_role})
+                      {emp.systemUser.user_role === 'Admin' ? <Shield size={12} className="mr-1" /> : <User size={12} className="mr-1" />}
+                      {emp.systemUser.username} ({emp.systemUser.user_role})
                     </span>
                   ) : (
                     <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-500 border border-gray-200">

@@ -7,6 +7,7 @@ import {
 import axios from '../api/axiosClient';
 import { useAuth } from '../context/AuthContext';
 import { PermissionGate } from '../components/RoleGate';
+import { successToast, errorToast } from '../utils/toast';
 
 const POStatusBadge = ({ status }) => {
   const styles = {
@@ -75,11 +76,11 @@ export default function PurchaseOrderDetail() {
       if (res.data.stockInResult) {
         setStockInResult(res.data.stockInResult);
       }
-      alert('Cập nhật thành công!');
+      successToast('Cập nhật thành công!');
     } catch (err) {
       const errorMsg = err.response?.data?.error || 'Không thể cập nhật trạng thái';
       setError(errorMsg);
-      alert(errorMsg);
+      errorToast(errorMsg);
     } finally {
       setUpdating(false);
     }

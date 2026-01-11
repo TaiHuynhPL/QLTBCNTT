@@ -62,6 +62,10 @@ AssetHolder.hasMany(MaintenanceLog, { foreignKey: 'technician_id', as: 'maintena
 ActivityLog.belongsTo(SystemUser, { foreignKey: 'user_id', as: 'user' });
 SystemUser.hasMany(ActivityLog, { foreignKey: 'user_id', as: 'activityLogs' });
 
+
+AssetHolder.belongsTo(SystemUser, { foreignKey: 'system_user_id', as: 'system_user' });
+SystemUser.hasOne(AssetHolder, { foreignKey: 'system_user_id' });
+
 const models = {
   sequelize,
   Supplier,

@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Plus, Edit, Trash2, Search } from 'lucide-react';
 import axios from '../api/axiosClient';
+import { errorToast } from '../utils/toast';
+import ConfirmDialog from '../components/ConfirmDialog';
 
 export default function ConsumableModelList() {
   const [models, setModels] = useState([]);
@@ -96,29 +98,45 @@ export default function ConsumableModelList() {
       setShowForm(false);
       fetchModels();
     } catch (err) {
-      alert(err.response?.data?.error || 'Lỗi khi lưu dữ liệu');
+      errorToast(err.response?.data?.error || 'Lỗi khi lưu dữ liệu');
     }
   };
 
-  const handleDelete = async (id) => {
-    if (window.confirm('Xác nhận xóa mô hình vật tư này?')) {
-      try {
-        await axios.delete(`/consumable-models/${id}`);
-        fetchModels();
-      } catch (err) {
-        alert(err.response?.data?.error || 'Lỗi khi xóa dữ liệu');
-      }
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [pendingDeleteId, setPendingDeleteId] = useState(null);
+
+  const handleDelete = (id) => {
+    setPendingDeleteId(id);
+    setConfirmOpen(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!pendingDeleteId) return;
+    try {
+      await axios.delete(`/consumable-models/${pendingDeleteId}`);
+      fetchModels();
+    } catch (err) {
+      errorToast(err.response?.data?.error || 'Lỗi khi xóa dữ liệu');
+    } finally {
+      setConfirmOpen(false);
+      setPendingDeleteId(null);
     }
   };
 
   return (
     <div className="min-h-screen bg-gray-50 p-4 md:p-8 font-sans">
       {/* Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-2 mb-8">
+      <div className="flex md:flex-row justify-between items-start md:items-center gap-2 mb-8">
         <div>
-          <h1 className="text-3xl md:text-4xl font-extrabold text-indigo-700 tracking-tight mb-1 drop-shadow-sm">Mô hình Vật tư Tiêu hao</h1>
-          <p className="text-gray-500 text-base md:text-lg">Quản lý danh sách các mô hình vật tư tiêu hao</p>
+          <h1 className="text-3xl md:text-4xl font-extrabold text-indigo-700 tracking-tight mb-1 drop-shadow-sm">Vật tư Tiêu hao</h1>
+          <p className="text-gray-500 text-base md:text-lg">Quản lý danh sách các vật tư tiêu hao</p>
         </div>
+        <button
+          onClick={handleAddNew}
+          className="bg-indigo-500 text-white hover:bg-indigo-600 px-6 py-3 rounded-xl font-semibold flex items-center gap-2 shadow transition"
+        >
+          <Plus size={18} /> Thêm vật tư
+        </button>
       </div>
 
       {/* Table View */}
@@ -144,12 +162,6 @@ export default function ConsumableModelList() {
               }}
             />
           </div>
-          <button
-            onClick={handleAddNew}
-            className="bg-gradient-to-r from-indigo-500 to-cyan-500 text-white px-6 py-2 rounded-lg hover:from-indigo-600 hover:to-cyan-600 shadow transition-all font-semibold flex items-center gap-2 whitespace-nowrap"
-          >
-            <Plus size={18} /> Thêm mô hình
-          </button>
         </div>
 
         {/* Table */}
@@ -320,6 +332,15 @@ export default function ConsumableModelList() {
           </div>
         </div>
       )}
+      <ConfirmDialog
+        open={confirmOpen}
+        title="Xác nhận xoá mô hình vật tư"
+        message="Bạn chắc chắn muốn xóa mô hình vật tư này? Hành động này không thể hoàn tác."
+        onConfirm={handleConfirmDelete}
+        onCancel={() => { setConfirmOpen(false); setPendingDeleteId(null); }}
+        confirmText="Xóa"
+        cancelText="Hủy"
+      />
     </div>
   );
 }

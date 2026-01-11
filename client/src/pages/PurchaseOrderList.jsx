@@ -4,6 +4,8 @@ import { ShoppingCart, Plus, Filter, Search, Eye, FileCheck, Edit2, Trash2 } fro
 import axios from '../api/axiosClient';
 import { useAuth } from '../context/AuthContext';
 import { PermissionGate } from '../components/RoleGate';
+import { errorToast } from '../utils/toast';
+import ConfirmDialog from '../components/ConfirmDialog';
 
 const POStatusBadge = ({ status }) => {
   const styles = {
@@ -40,7 +42,10 @@ export default function PurchaseOrderList() {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
+  const [status, setStatus] = useState("");
   const debounceRef = useRef();
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [pendingDeleteId, setPendingDeleteId] = useState(null);
 
   const fetchPOs = () => {
     setLoading(true);
@@ -48,6 +53,7 @@ export default function PurchaseOrderList() {
     axios.get('/purchase-orders', {
       params: {
         search: debouncedSearch || undefined,
+        status: status || undefined,
         page,
         limit: 10
       }
@@ -61,21 +67,28 @@ export default function PurchaseOrderList() {
       .finally(() => setLoading(false));
   };
 
-  const handleDeletePO = async (poId) => {
-    if (window.confirm('Bạn chắc chắn muốn xóa đơn hàng này?')) {
-      try {
-        await axios.delete(`/purchase-orders/${poId}`);
-        fetchPOs();
-      } catch (err) {
-        alert(err.response?.data?.error || 'Không thể xóa đơn hàng');
-      }
+  const handleDeletePO = (poId) => {
+    setPendingDeleteId(poId);
+    setConfirmOpen(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!pendingDeleteId) return;
+    try {
+      await axios.delete(`/purchase-orders/${pendingDeleteId}`);
+      fetchPOs();
+    } catch (err) {
+      errorToast(err.response?.data?.error || 'Không thể xóa đơn hàng');
+    } finally {
+      setConfirmOpen(false);
+      setPendingDeleteId(null);
     }
   };
 
   useEffect(() => {
     fetchPOs();
     // eslint-disable-next-line
-  }, [debouncedSearch, page]);
+  }, [debouncedSearch, page, status]);
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -87,7 +100,7 @@ export default function PurchaseOrderList() {
 
   return (
     <div className="min-h-screen bg-gray-50 p-4 md:p-8 font-sans">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-2 mb-8">
+      <div className="flex md:flex-row justify-between items-start md:items-center gap-2 mb-8">
         <div>
           <h1 className="text-3xl md:text-4xl font-extrabold text-indigo-700 tracking-tight mb-1 drop-shadow-sm">Đơn Mua Hàng (PO)</h1>
           <p className="text-gray-500 text-base md:text-lg">Quản lý quy trình mua sắm và nhập kho</p>
@@ -103,8 +116,8 @@ export default function PurchaseOrderList() {
       </div>
       <div className="bg-white rounded-2xl shadow-md border border-gray-100 overflow-hidden">
         {/* Toolbar */}
-        <div className="p-4 border-b border-gray-100 flex gap-4">
-          <div className="relative flex-1 max-w-md">
+        <div className="grid grid-cols-3 md:grid-cols-3 p-4 border-b border-gray-100 gap-4 md:items-center">
+          <div className="md:col-span-2">
             <Search className="absolute left-3 top-2.5 text-gray-400" size={18} />
             <input
               type="text"
@@ -122,6 +135,26 @@ export default function PurchaseOrderList() {
                 }
               }}
             />
+          </div>
+          <div className="flex md:col-span-1 w-full items-center gap-2">
+            <label htmlFor="status-filter" className="text-sm text-gray-600 font-medium">Trạng thái:</label>
+            <select
+              id="status-filter"
+              className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white"
+              value={status}
+              onChange={e => {
+                setPage(1);
+                setStatus(e.target.value);
+              }}
+            >
+              <option value="">Tất cả</option>
+              <option value="Draft">Nháp</option>
+              <option value="Pending Approval">Chờ duyệt</option>
+              <option value="Approved">Đã duyệt</option>
+              <option value="Rejected">Từ chối</option>
+              <option value="Completed">Hoàn thành</option>
+              <option value="Cancelled">Hủy</option>
+            </select>
           </div>
         </div>
         <table className="w-full text-left border-collapse">
@@ -203,6 +236,15 @@ export default function PurchaseOrderList() {
           </div>
         </div>
       </div>
+      <ConfirmDialog
+        open={confirmOpen}
+        title="Xác nhận xoá đơn hàng"
+        message="Bạn chắc chắn muốn xóa đơn hàng này? Hành động này không thể hoàn tác."
+        onConfirm={handleConfirmDelete}
+        onCancel={() => { setConfirmOpen(false); setPendingDeleteId(null); }}
+        confirmText="Xóa"
+        cancelText="Hủy"
+      />
     </div>
   );
 }

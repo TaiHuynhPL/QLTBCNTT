@@ -19,12 +19,19 @@ router.get('/', authenticateToken, async (req, res) => {
     const offset = (page - 1) * limit;
     // Get total count with same where, but without limit/offset
     const total = await AssetHolder.count({ where });
-    // Get paginated rows
+    // Get paginated rows with system_user info
     const rows = await AssetHolder.findAll({
       where,
       limit: parseInt(limit),
       offset: parseInt(offset),
-      order: [['full_name', 'ASC']]
+      order: [['full_name', 'ASC']],
+      include: [
+        {
+          model: SystemUser,
+          as: 'systemUser', // Đúng với association trong model/index.js
+          attributes: { exclude: ['password_hash'] }
+        }
+      ]
     });
     res.json({ success: true, data: { holders: rows, total, page: parseInt(page), totalPages: Math.ceil(total / limit) } });
   } catch (error) {

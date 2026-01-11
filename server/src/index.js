@@ -14,8 +14,11 @@ import assignmentRoutes from './routes/assignments.js';
 import purchaseOrderRoutes from './routes/purchaseOrders.js';
 import consumableRoutes from './routes/consumables.js';
 import consumableModelRoutes from './routes/consumableModels.js';
+import consumableStockRoutes from './routes/consumableStock.js';
+import consumableCheckoutRoutes from './routes/consumableCheckout.js';
 import maintenanceRoutes from './routes/maintenance.js';
 import holderRoutes from './routes/holders.js';
+import locationRoutes from './routes/locations.js';
 import dashboardRoutes from './routes/dashboard.js';
 import activityLogRoutes from './routes/activityLogs.js';
 import systemUsersRoutes from './routes/systemUsers.js';
@@ -50,10 +53,13 @@ app.use('/api/assignments', assignmentRoutes);
 app.use('/api/purchase-orders', purchaseOrderRoutes);
 app.use('/api/consumables', consumableRoutes);
 app.use('/api/consumable-models', consumableModelRoutes);
+app.use('/api/consumable-stock', consumableStockRoutes);
+app.use('/api/consumable-checkouts', consumableCheckoutRoutes);
 app.use('/api/maintenance', maintenanceRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/activity-logs', activityLogRoutes);
 app.use('/api/holders', holderRoutes);
+app.use('/api/locations', locationRoutes);
 
 // Health check
 app.get('/health', (req, res) => {

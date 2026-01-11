@@ -13,11 +13,15 @@ import EmployeeList from './pages/EmployeeList';
 import EmployeeDetail from './pages/EmployeeDetail';
 import EmployeeForm from './pages/EmployeeForm';
 import ConsumableModelList from './pages/ConsumableModelList';
+import ConsumableInventory from './pages/ConsumableInventory';
 import SystemUsers from './pages/SystemUsers';
+import Categories from './pages/Categories';
+import Toast from './components/Toast';
 
 function App() {
   return (
     <Router>
+      <Toast />
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route
@@ -31,7 +35,9 @@ function App() {
                     <Route path="/" element={<Dashboard />} />
                     <Route path="/assets" element={<Assets />} />
                     <Route path="/assets/:id" element={<AssetDetail />} />
-                    <Route path="/consumable-models" element={<ConsumableModelList />} />
+                    <Route path="/categories" element={<Categories />} />
+                    {/* <Route path="/consumable-models" element={<ConsumableModelList />} /> */}
+                    <Route path="/consumable-inventory" element={<ConsumableInventory />} />
                     <Route path="/purchase-orders" element={<PurchaseOrderList />} />
                     <Route path="/assignments/new" element={<AssignmentForm />} />
                     <Route path="/purchase-orders/new" element={<PurchaseOrderForm />} />

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Save, Plus, Trash2, Package, Zap, Lock } from 'lucide-react';
 import axios from '../api/axiosClient';
 import { useAuth } from '../context/AuthContext';
+import { errorToast } from '../utils/toast';
 
 export default function PurchaseOrderForm() {
   const navigate = useNavigate();
@@ -98,7 +99,7 @@ export default function PurchaseOrderForm() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!hasPermission('createPO')) {
-      alert('Bạn không có quyền tạo đơn hàng!');
+      errorToast('Bạn không có quyền tạo đơn hàng!');
       return;
     }
     setLoading(true);
@@ -130,7 +131,7 @@ export default function PurchaseOrderForm() {
       navigate('/purchase-orders');
     } catch (err) {
       setError(err.response?.data?.error || 'Lỗi khi tạo đơn hàng!');
-      alert(err.response?.data?.error || 'Lỗi khi tạo đơn hàng!');
+      errorToast(err.response?.data?.error || 'Lỗi khi tạo đơn hàng!');
     } finally {
       setLoading(false);
     }

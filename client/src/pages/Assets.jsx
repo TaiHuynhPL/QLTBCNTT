@@ -31,6 +31,7 @@ export default function AssetList() {
   const [error, setError] = useState(null);
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [status, setStatus] = useState("");
   const debounceRef = useRef();
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -43,6 +44,7 @@ export default function AssetList() {
     axios.get('/assets', {
       params: {
         search: search || undefined,
+        status: status || undefined,
         page,
         limit: 10
       }
@@ -59,7 +61,7 @@ export default function AssetList() {
   useEffect(() => {
     fetchAssets();
     // eslint-disable-next-line
-  }, [debouncedSearch, page]);
+  }, [debouncedSearch, page, status]);
 
   // Debounce search input
   useEffect(() => {
@@ -74,14 +76,14 @@ export default function AssetList() {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-2 mb-8">
         <div>
           <h1 className="text-3xl md:text-4xl font-extrabold text-indigo-700 tracking-tight mb-1 drop-shadow-sm">Quản lý Tài Sản</h1>
-          <p className="text-gray-500 text-base md:text-lg">Dữ liệu từ bảng <code className="text-xs bg-gray-200 px-1 rounded">assets</code></p>
+          <p className="text-gray-500 text-base md:text-lg">Quản lý danh sách tài sản</p>
         </div>
       </div>
 
       <div className="bg-white rounded-2xl shadow-md border border-gray-100 overflow-hidden">
         {/* Toolbar */}
-        <div className="p-4 border-b border-gray-100 flex gap-4">
-          <div className="relative flex-1 max-w-md">
+        <div className="grid grid-cols-3 md:grid-cols-3 p-4 border-b border-gray-100 gap-4 md:items-center">
+          <div className="md:col-span-2">
             <Search className="absolute left-3 top-2.5 text-gray-400" size={18} />
             <input 
               type="text" 
@@ -100,6 +102,24 @@ export default function AssetList() {
               }}
             />
           </div>
+          <div className="flex md:col-span-1 w-full items-center gap-2">
+            <label htmlFor="status-filter" className="text-sm text-gray-600 font-medium">Trạng thái:</label>
+            <select
+              id="status-filter"
+              className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white"
+              value={status}
+              onChange={e => {
+                setPage(1);
+                setStatus(e.target.value);
+              }}
+            >
+              <option value="">Tất cả</option>
+              <option value="Deployed">Đang cấp phát</option>
+              <option value="In Stock">Trong kho</option>
+              <option value="In Repair">Đang sửa chữa</option>
+              <option value="Retired">Thanh lý/Hủy</option>
+            </select>
+          </div>
         </div>
 
         {/* Table View */}
@@ -108,7 +128,7 @@ export default function AssetList() {
             <tr className="bg-indigo-50 text-indigo-700 text-xs uppercase tracking-wider">
               <th className="px-6 py-4 font-semibold">Asset Tag / Serial</th>
               <th className="px-6 py-4 font-semibold">Model & Loại</th>
-              <th className="px-6 py-4 font-semibold">Vị trí / Người giữ</th>
+              <th className="px-6 py-4 font-semibold">Vị trí</th>
               <th className="px-6 py-4 font-semibold">Trạng thái</th>
               <th className="px-6 py-4 font-semibold text-right">Giá trị (VNĐ)</th>
               <th className="px-6 py-4 font-semibold text-center">Thao tác</th>
@@ -147,7 +167,7 @@ export default function AssetList() {
                   )}
                 </td>
                 {/* Column: Status */}
-                <td className="px-6 py-4">
+                <td className="px-2 py-4">
                   <StatusBadge status={item.current_status} />
                 </td>
                 {/* Column: Purchase Cost */}

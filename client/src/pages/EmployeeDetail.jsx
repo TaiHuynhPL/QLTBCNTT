@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import axios from '../api/axiosClient';
 import { useAuth } from '../context/AuthContext';
+import { successToast, errorToast } from '../utils/toast';
 
 export default function EmployeeDetail() {
   const { id } = useParams();
@@ -53,9 +54,9 @@ export default function EmployeeDetail() {
       
       setShowReturnModal(false);
       setSelectedAsset(null);
-      alert(`Đã thu hồi thành công tài sản: ${assetData.asset_name}`);
+      successToast(`Đã thu hồi thành công tài sản: ${assetData.asset_name}`);
     } catch (err) {
-      alert(err.response?.data?.error || 'Lỗi khi thu hồi tài sản!');
+      errorToast(err.response?.data?.error || 'Lỗi khi thu hồi tài sản!');
       console.error('Return asset error:', err);
     } finally {
       setLoading(false);
@@ -92,7 +93,7 @@ export default function EmployeeDetail() {
     
     // Kiểm tra quyền: chỉ Admin mới được cấp tài khoản
     if (!hasRole('Admin')) {
-      alert('Chỉ Admin mới có quyền cấp tài khoản hệ thống!');
+      errorToast('Chỉ Admin mới có quyền cấp tài khoản hệ thống!');
       return;
     }
     
@@ -114,10 +115,10 @@ export default function EmployeeDetail() {
         setEmployee(getRes.data.data);
       }
       setShowUserModal(false);
-      alert(`Đã cấp tài khoản thành công cho ${employee.full_name}`);
+      successToast(`Đã cấp tài khoản thành công cho ${employee.full_name}`);
     } catch (err) {
       setError(err.response?.data?.error || 'Lỗi khi cấp tài khoản!');
-      alert(err.response?.data?.error || 'Lỗi khi cấp tài khoản!');
+      errorToast(err.response?.data?.error || 'Lỗi khi cấp tài khoản!');
     } finally {
       setLoading(false);
     }
@@ -168,7 +169,6 @@ export default function EmployeeDetail() {
               <div className="bg-green-50 rounded-xl p-5 border border-green-100">
                 <div className="flex justify-between items-start mb-2">
                   <span className="text-xs font-bold text-green-700 uppercase tracking-wide">Đã kích hoạt</span>
-                  <button className="text-xs text-indigo-600 hover:underline">Reset Pass</button>
                 </div>
                 <div className="space-y-1">
                   <p className="text-base text-gray-600">Username: <span className="font-medium text-gray-900">{employee.systemUser.username}</span></p>

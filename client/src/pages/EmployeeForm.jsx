@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from '../api/axiosClient';
 import { useAuth } from '../context/AuthContext';
+import { errorToast } from '../utils/toast';
 import { 
   ArrowLeft, Save, User, Mail, Briefcase, 
   Shield, Key, CheckCircle, AlertCircle, UserPlus 
@@ -64,7 +65,7 @@ export default function EmployeeForm() {
     if (createAccount) {
       // Kiểm tra quyền: chỉ Admin được cấp tài khoản
       if (!hasRole('Admin')) {
-        setError('Chỉ Admin mới có quyền cấp tài khoản hệ thống. Vui lòng bỏ chọn "Cấp tài khoản ngay" hoặc liên hệ Admin.');
+        errorToast('Chỉ Admin mới có quyền cấp tài khoản hệ thống!');
         setLoading(false);
         return;
       }
@@ -256,7 +257,7 @@ export default function EmployeeForm() {
                     type="button"
                     onClick={() => {
                       if (!hasRole('Admin') && !createAccount) {
-                        alert('Chỉ Admin mới có quyền cấp tài khoản hệ thống!');
+                        errorToast('Chỉ Admin mới có quyền cấp tài khoản hệ thống!');
                         return;
                       }
                       setCreateAccount(!createAccount);

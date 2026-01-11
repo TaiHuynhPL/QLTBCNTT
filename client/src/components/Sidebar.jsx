@@ -1,5 +1,4 @@
-
-import { LayoutDashboard, Box, ShoppingCart, Users, User, Settings, Zap, Shield } from 'lucide-react';
+import { LayoutDashboard, Box, ShoppingCart, Users, User, Settings, Zap, Shield, FolderOpen, Package } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
@@ -22,8 +21,8 @@ const Sidebar = () => {
 
   return (
     <div className="w-72 min-h-screen bg-slate-900 border-r border-slate-800 shadow-lg flex flex-col px-6 py-8 font-sans">
-      <h1 className="text-2xl font-extrabold mb-10 text-cyan-400 text-center tracking-tight drop-shadow">UIT ASSET MGMT</h1>
-      
+      <h1 className="text-2xl font-extrabold mb-10 text-cyan-400 text-center tracking-tight drop-shadow">ADMIN APP</h1>
+
       {/* User info with role badge */}
       <div className="flex items-center gap-3 mb-10 px-2">
         <div className="bg-gradient-to-br from-indigo-500 to-cyan-500 rounded-full p-2 shadow">
@@ -38,19 +37,23 @@ const Sidebar = () => {
         <Link to="/" className="flex items-center gap-3 px-4 py-3 rounded-xl font-medium text-slate-200 hover:bg-slate-800 hover:text-cyan-400 transition group">
           <LayoutDashboard size={22} className="group-hover:text-cyan-400 transition" /> Dashboard
         </Link>
-        
+
+        <Link to="/purchase-orders" className="flex items-center gap-3 px-4 py-3 rounded-xl font-medium text-slate-200 hover:bg-slate-800 hover:text-cyan-400 transition group">
+          <ShoppingCart size={22} className="group-hover:text-cyan-400 transition" /> Đơn đặt hàng
+        </Link>
+
         <Link to="/assets" className="flex items-center gap-3 px-4 py-3 rounded-xl font-medium text-slate-200 hover:bg-slate-800 hover:text-cyan-400 transition group">
           <Box size={22} className="group-hover:text-cyan-400 transition" /> Quản lý Tài sản
         </Link>
 
-        <Link to="/consumable-models" className="flex items-center gap-3 px-4 py-3 rounded-xl font-medium text-slate-200 hover:bg-slate-800 hover:text-cyan-400 transition group">
-          <Zap size={22} className="group-hover:text-cyan-400 transition" /> Vật tư Tiêu hao
+        <Link to="/consumable-inventory" className="flex items-center gap-3 px-4 py-3 rounded-xl font-medium text-slate-200 hover:bg-slate-800 hover:text-cyan-400 transition group">
+          <Package size={22} className="group-hover:text-cyan-400 transition" /> Vật tư Tiêu hao
         </Link>
-        
-        <Link to="/purchase-orders" className="flex items-center gap-3 px-4 py-3 rounded-xl font-medium text-slate-200 hover:bg-slate-800 hover:text-cyan-400 transition group">
-          <ShoppingCart size={22} className="group-hover:text-cyan-400 transition" /> Đơn đặt hàng
+
+        <Link to="/categories" className="flex items-center gap-3 px-4 py-3 rounded-xl font-medium text-slate-200 hover:bg-slate-800 hover:text-cyan-400 transition group">
+          <FolderOpen size={22} className="group-hover:text-cyan-400 transition" /> Danh mục
         </Link>
-        
+
         <Link to="/holders" className="flex items-center gap-3 px-4 py-3 rounded-xl font-medium text-slate-200 hover:bg-slate-800 hover:text-cyan-400 transition group">
           <Users size={22} className="group-hover:text-cyan-400 transition" /> Nhân viên
         </Link>

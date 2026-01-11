@@ -134,14 +134,14 @@ router.get('/recent-activities', authenticateToken, async (req, res) => {
     };
     // Helper dịch action_type sang tiếng Việt
     const actionTypeVN = (type) => {
-      switch (type) {
-        case 'Checkout': return 'Bàn giao';
-        case 'Checkin': return 'Thu hồi';
-        case 'Update': return 'Cập nhật';
-        case 'Create': return 'Tạo mới';
-        case 'Delete': return 'Xóa';
-        case 'Approve PO': return 'Duyệt phiếu';
-        case 'Logout': return 'Đăng xuất';
+      switch (type.toLowerCase()) {
+        case 'checkout': return 'Bàn giao';
+        case 'checkin': return 'Thu hồi';
+        case 'update': return 'Cập nhật';
+        case 'create': return 'Tạo mới';
+        case 'delete': return 'Xóa';
+        case 'approve po': return 'Duyệt phiếu';
+        case 'logout': return 'Đăng xuất';
         default: return type;
       }
     };
@@ -151,10 +151,15 @@ router.get('/recent-activities', authenticateToken, async (req, res) => {
       switch ((table || '').toLowerCase()) {
         case 'assetholders': return 'Người sử dụng';
         case 'assets': return 'Thiết bị';
-        case 'assignments': return 'Bàn giao';
+        case 'assignments': return 'Phiếu bàn giao';
         case 'locations': return 'Vị trí';
-        case 'systemusers': return 'Tài khoản';
-        case 'purchaseorders': return 'Phiếu mua';
+        case 'system_users': return 'Tài khoản';
+        case 'purchase_orders': return 'Đơn mua hàng';
+        case 'consumable_stocks': return 'Tồn kho vật tư';
+        case 'consumable_checkouts': return 'Phiếu xuất kho vật tư';
+        case 'asset_models': return 'Loại thiết bị';
+        case 'consumable_models': return 'Loại vật tư';
+        case 'suppliers': return 'Nhà cung cấp';
         default: return table;
       }
     };

@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import axios from '../api/axiosClient';
 import { useAuth } from '../context/AuthContext';
+import { successToast, errorToast } from '../utils/toast';
 
 export default function SystemUsers() {
   const navigate = useNavigate();
@@ -77,9 +78,9 @@ export default function SystemUsers() {
       // Refetch để cập nhật danh sách
       await fetchUsers();
       setDeleteConfirm(null);
-      alert(`Đã xóa người dùng: ${username}`);
+      successToast(`Đã xóa người dùng: ${username}`);
     } catch (err) {
-      alert(err.response?.data?.error || 'Lỗi khi xóa người dùng!');
+      errorToast(err.response?.data?.error || 'Lỗi khi xóa người dùng!');
       console.error('Delete user error:', err);
     } finally {
       setLoading(false);
@@ -95,7 +96,7 @@ export default function SystemUsers() {
       // Refetch để cập nhật danh sách
       await fetchUsers();
     } catch (err) {
-      alert(err.response?.data?.error || 'Lỗi khi cập nhật trạng thái!');
+      errorToast(err.response?.data?.error || 'Lỗi khi cập nhật trạng thái!');
       console.error('Update status error:', err);
     } finally {
       setLoading(false);
@@ -256,13 +257,6 @@ export default function SystemUsers() {
                             className="p-2 hover:bg-blue-100 rounded-lg text-blue-600 transition disabled:opacity-30 disabled:cursor-not-allowed"
                           >
                             <Eye size={18} />
-                          </button>
-                          <button
-                            onClick={() => alert('Chức năng edit sẽ được cập nhật')}
-                            title="Chỉnh sửa tài khoản"
-                            className="p-2 hover:bg-indigo-100 rounded-lg text-indigo-600 transition"
-                          >
-                            <Edit2 size={18} />
                           </button>
                           <button
                             onClick={() => handleDeleteUser(user.system_user_id, user.username)}
